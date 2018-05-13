@@ -6,11 +6,11 @@ import (
 
 type Handler struct {
 	Device Device
-	Fd *os.File
+	Fd     *os.File
 }
 
 type KeyEvent struct {
-	Device   Device
+	Device   Device // todo: should not be whole Device struct but internal tiny and lightweight (uint8) identifier
 	Code     uint8
 	Released bool
 }
@@ -45,9 +45,9 @@ func (h Handler) ReadKey() (KeyEvent, error) {
 		panic("Ultimate Shiet 6k")
 	}
 
+	// todo: create constructor method
 	return KeyEvent{h.Device, event[2], released}, nil
 }
-
 
 func (h Handler) ReadKeys(events chan KeyEvent) {
 	for {
