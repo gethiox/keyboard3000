@@ -11,30 +11,17 @@ import (
 
 const devicesPath = "/proc/bus/input/devices"
 
-// keyboard inputDevice data, single values hex-encoded
+// keyboard inputDevice data
 type inputDevice struct {
-	// header, hex values (I: Bus=0003 Vendor=0951 Product=16b7 Version=0111)
-	bus     int64
-	vendor  int64
-	product int64
-	version int64
+	bus      int64
+	vendor   int64
+	product  int64
+	version  int64
 
-	// always there
-	Name     string   // (N: Name="Kingston HyperX Alloy FPS Mechanical Gaming Keyboard")
-	handlers []string // (H: Handlers=sysrq kbd event3 mouse0)
+	Name     string
+	handlers []string
 
-	// not useful to me
-	//phys     string   // (P: Phys=usb-0000:00:14.0-1/input1)
-	//sysfs    string   // (S: Sysfs=/devices/pci0000:00/0000:00:14.0/usb3/3-1/3-1:1.1/0003:0951:16B7.0002/input/input3)
-	//uniq     string   // (U: Uniq=)
-
-	// bitmasks
-	ev int64 // hex
-
-	// not useful to me
-	//prop string   //
-	//key  []string // hex? bin?
-	// and others optional
+	ev       int64
 }
 
 func (d inputDevice) String() string {
