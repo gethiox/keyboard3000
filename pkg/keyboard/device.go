@@ -1,4 +1,4 @@
-package device
+package keyboard
 
 import (
 	"fmt"
@@ -11,8 +11,8 @@ import (
 
 const devices = "/proc/bus/input/devices"
 
-// keyboard Device data, single values hex-encoded
-type Device struct {
+// keyboard inputDevice data, single values hex-encoded
+type inputDevice struct {
 	// header, hex values (I: Bus=0003 Vendor=0951 Product=16b7 Version=0111)
 	bus     int64
 	vendor  int64
@@ -37,11 +37,12 @@ type Device struct {
 	// and others optional
 }
 
-func (d Device) String() string {
+func (d inputDevice) String() string {
 	return fmt.Sprintf("bus: 0x%04x, vendor: 0x%04x, product: 0x%04x, version: 0x%04x, handlers: %v, Name: \"%s\"", d.bus, d.vendor, d.product, d.version, d.handlers, d.Name)
 }
 
-func (d Device) Event() (string, error) {
+// finds event attribute in device handlers array
+func (d inputDevice) Event() (string, error) {
 	for _, handler := range d.handlers {
 		if len(handler) >= 5 && handler[:5] == "event" {
 			return handler, nil
@@ -50,7 +51,8 @@ func (d Device) Event() (string, error) {
 	return "", errors.New("shiet")
 }
 
-func (d Device) EventPath() (string, error) {
+// returns event file path like /dev/input/event4
+func (d inputDevice) EventPath() (string, error) {
 	event, err := d.Event()
 	if err != nil {
 		return "", err
@@ -65,7 +67,8 @@ func (d Device) EventPath() (string, error) {
 	return eventPath, nil
 }
 
-func readValues(record string, dev *Device) {
+// reads parameters from section and update device entity
+func readValues(record string, dev *inputDevice) {
 	switch string(record[0]) {
 	case "N": // Name
 		dev.Name = string(record[9 : len(record)-1])
@@ -105,16 +108,17 @@ func createSections(data []byte) []string {
 	return sections[:len(sections)-1] // because of additional "\n\n" at the end of the file
 }
 
-func ReadDevices() ([]Device, error) {
+// reads available keyboard device
+func ReadDevices() ([]inputDevice, error) {
 	data, err := ioutil.ReadFile(devices)
 	if err != nil {
 		return nil, err
 	}
 
-	var devices []Device
+	var devices []inputDevice
 
 	for _, section := range createSections(data) {
-		dev := Device{}
+		dev := inputDevice{}
 		for _, record := range createRecords(section) {
 			readValues(record, &dev)
 		}
