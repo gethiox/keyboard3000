@@ -106,7 +106,7 @@ func main() {
 
 	for {
 		event := <-eventsChan
-		//fmt.Printf("code: 0x%02x %3d, released: %5t, keyboard: \"%s\"\n", event.Code, event.Code, event.Released, event.inputDevice.Name)
+		//fmt.Printf("code: 0x%02x %3d, released: %5t, keyboard: \"%s\"\n", event.code, event.code, event.released, event.inputDevice.Name)
 		Events <- event
 	}
 }

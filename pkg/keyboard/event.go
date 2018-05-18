@@ -2,15 +2,20 @@ package keyboard
 
 import (
 	"os"
+	"fmt"
 )
 
 type KeyEvent struct {
-	Device   inputDevice // todo: should not be whole inputDevice struct but internal tiny and lightweight (uint8) identifier
-	Code     uint8
-	Released bool
+	device   *inputDevice // event source identifier
+	code     uint8
+	released bool
 }
 
-func NewEvent(device inputDevice, code uint8, released bool) KeyEvent {
+func (ke KeyEvent) String() string {
+	return fmt.Sprintf("[RawEvent, code: 0x%02x, released: %5t, device: \"%s\"]", ke.code, ke.released, ke.device.Name)
+}
+
+func NewEvent(device *inputDevice, code uint8, released bool) KeyEvent {
 	return KeyEvent{device, code, released}
 }
 
@@ -39,6 +44,7 @@ func (h Handler) ReadKey() (KeyEvent, error) {
 
 		event = buf[16:23]
 
+		//      ¯\_(ツ)_/¯                released             pressed
 		if event[0] == 0x01 && (event[4] == 0x00 || event[4] == 0x01) {
 			break
 		}
@@ -53,7 +59,7 @@ func (h Handler) ReadKey() (KeyEvent, error) {
 		panic("Ultimate Shiet 6k")
 	}
 
-	return NewEvent(h.Device, event[2], released), nil
+	return NewEvent(&h.Device, event[2], released), nil
 }
 
 func (h Handler) ReadKeys(events chan KeyEvent) {

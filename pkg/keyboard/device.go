@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-const devices = "/proc/bus/input/devices"
+const devicesPath = "/proc/bus/input/devices"
 
 // keyboard inputDevice data, single values hex-encoded
 type inputDevice struct {
@@ -110,7 +110,7 @@ func createSections(data []byte) []string {
 
 // reads available keyboard device
 func ReadDevices() ([]inputDevice, error) {
-	data, err := ioutil.ReadFile(devices)
+	data, err := ioutil.ReadFile(devicesPath)
 	if err != nil {
 		return nil, err
 	}
