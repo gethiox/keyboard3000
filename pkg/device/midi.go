@@ -6,21 +6,66 @@ import (
 	"io/ioutil"
 	"gopkg.in/yaml.v2"
 	"errors"
+	"github.com/xthexder/go-jack"
 )
 
 type MidiDevice struct {
 	Handler *keyboard.Handler
 	Config  ConfigStruct
 
+	channel     int
 	semitones   int
 	keyMap      keyMap
 	pressedKeys pressedKeys
+
+	events   *chan MidiEvent
+	MidiPort *jack.Port
+}
+
+type MidiEvent struct {
+	Port *jack.Port
+	Data jack.MidiData
 }
 
 const (
-	Note    = iota
-	Control = iota
+	NoteOn  = 144
+	NoteOff = 128
 )
+
+const (
+	Note    = iota
+	Control
+)
+
+const (
+	Panic        = iota
+	Reset
+	OctaveUp
+	OctaveDown
+	SemitoneUp
+	SemitoneDown
+	ChannelUp
+	ChannelDown
+	ProgramUp
+	ProgramDown
+	OctaveAdd
+	OctaveDel
+)
+
+var stringToConst = map[string]uint8{
+	"panic":         Panic,
+	"reset":         Reset,
+	"octave_up":     OctaveUp,
+	"octave_down":   OctaveDown,
+	"semitone_up":   SemitoneUp,
+	"semitone_down": SemitoneDown,
+	"channel_up":    ChannelUp,
+	"channel_down":  ChannelDown,
+	"program_up":    ProgramUp,
+	"program_down":  ProgramDown,
+	"octave_add":    OctaveAdd,
+	"octave_del":    OctaveDel,
+}
 
 type keyBind struct {
 	target   uint8
@@ -37,10 +82,10 @@ type Identification struct {
 
 // configuration yaml structure
 type ConfigStruct struct {
-	Identification Identification `yaml:"identification"`
-	Control        map[int]string `yaml:"control"`
-	Notes          map[int]uint8  `yaml:"notes"`
-	AutoConnect    []string       `yaml:"auto_connect"`
+	Identification Identification   `yaml:"identification"`
+	Control        map[uint8]string `yaml:"control"`
+	Notes          map[uint8]uint8  `yaml:"notes"`
+	AutoConnect    []string         `yaml:"auto_connect"`
 }
 
 func (d MidiDevice) ChangeOctave(octaves int) {
@@ -59,7 +104,7 @@ func loadConfig(data []byte) (ConfigStruct, error) {
 
 var configNotFoundError = errors.New("shiet, Config not founded")
 
-func New(handler *keyboard.Handler) *MidiDevice {
+func New(handler *keyboard.Handler, eventChan *chan MidiEvent) *MidiDevice {
 	config, err := FindConfig(handler.Device.Name)
 	if err != nil {
 		if err == configNotFoundError {
@@ -77,10 +122,21 @@ func New(handler *keyboard.Handler) *MidiDevice {
 		}
 	}
 
+	keymap := make(keyMap)
+
+	for k, v := range config.Notes {
+		keymap[k] = keyBind{target: v, bindType: Note}
+	}
+	for k, v := range config.Control {
+		keymap[k] = keyBind{target: stringToConst[v], bindType: Control}
+	}
+
 	return &MidiDevice{
 		Handler:     handler,
 		Config:      config,
+		keyMap:      keymap,
 		pressedKeys: *new(pressedKeys),
+		events:      eventChan,
 	}
 }
 
@@ -116,16 +172,47 @@ func (d MidiDevice) HandleRawEvent(event keyboard.KeyEvent) int {
 
 	bind, ok := d.keyMap[code]
 	if !ok {
-		panic("not in device map")
+		//fmt.Printf("not in device map: '%v'\n", code)
+		return 1
+		//panic("not in device map")
 	}
 
 	switch bind.bindType {
 	case Note:
-		fmt.Printf("Note, target: %d\n", bind.target)
+		note := bind.target
+		var typeAndChannel byte
+		var velocity byte
+
+		if event.Released {
+			typeAndChannel = NoteOff
+			velocity = 0
+		} else {
+			typeAndChannel = NoteOn
+			velocity = 127
+		}
+
+		midiData := jack.MidiData{
+			0,
+			[]byte{typeAndChannel, note, velocity},
+		}
+
+		*d.events <- MidiEvent{d.MidiPort, midiData}
+
+		//fmt.Printf("Note, target: %d\n", bind.target)
 	case Control:
-		fmt.Printf("Control, target: %d\n", bind.target)
+		//fmt.Printf("Control, target: %d\n", bind.target)
 	default:
-		panic("The Ultimatest Shiet I've ever seen")
+		//panic("The Ultimatest Shiet I've ever seen")
 	}
 	return 0
+}
+
+func (d MidiDevice) Process() {
+	for {
+		keyEvent, err := d.Handler.ReadKey()
+		if err != nil {
+			panic(err)
+		}
+		d.HandleRawEvent(keyEvent)
+	}
 }

@@ -3,7 +3,7 @@ identification:
   # real_name: "Name of my ultimate keyboard seen in /proc/bus/input/devices file"
 
   # optional field, used to set midi output name
-  nice_name: "Default keyboard3000 device"
+  nice_name: "Keyboard"
 
 control:
   1:  panic

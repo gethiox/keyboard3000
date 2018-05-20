@@ -12,7 +12,7 @@ import (
 )
 
 var devicePorts = make(map[string]*jack.Port, 0)
-var Events = make(chan keyboard.KeyEvent, 0)
+var Events = make(chan device.MidiEvent, 0)
 var Client *jack.Client
 
 //var c int
@@ -22,8 +22,10 @@ func process(nframes uint32) int {
 	case <-time.After(1 * time.Nanosecond):
 		return 0
 	case event := <-Events:
-		fmt.Printf("%v\n", event)
-		//port := devicePorts[event.inputDevice.Name]
+		fmt.Printf("evend: %v\n", event)
+		buffer := event.Port.MidiClearBuffer(nframes)
+		event.Port.MidiEventWrite(&event.Data, buffer)
+
 		//buffer := port.MidiClearBuffer(nframes)
 		//
 		//
@@ -73,7 +75,7 @@ func midiSocketPlox(name string) *jack.Port {
 		return port
 	}
 
-	for i:=0 ; i<128; i++ {
+	for i := 0; i < 128; i++ {
 		portName := fmt.Sprintf("%s_%d", name, i)
 		port := Client.PortRegister(portName, jack.DEFAULT_MIDI_TYPE, jack.PortIsOutput, 0)
 		if port != nil {
@@ -117,7 +119,7 @@ func main() {
 		panic("jack-ultimate-shiet")
 	}
 
-	eventsChan := make(chan keyboard.KeyEvent, len(devices)*6)
+	//eventsChan := make(chan keyboard.KeyEvent, len(devices)*6)
 	//var devicePorts map[string]*jack.Port
 
 	// creating device handlers
@@ -129,14 +131,16 @@ func main() {
 			panic(err)
 		}
 		handler := keyboard.NewHandler(fd, dev)
-		midiDevice := device.New(&handler)
+		midiDevice := device.New(&handler, &Events)
+		midiPort := midiSocketPlox(midiDevice.Config.Identification.NiceName)
+		midiDevice.MidiPort = midiPort
 
 		// todo devicePorts needs to have unique identifiers, maybe pointers of midiDevice can be used, they are unique enough ¯\_(ツ)_/¯
-		devicePorts[dev.Name] = midiSocketPlox(midiDevice.Config.Identification.NiceName)
-
+		devicePorts[dev.Name] = midiPort
 
 		fmt.Printf("Run keyboard: \"%s\"\n", dev.Name)
-		go midiDevice.Handler.ReadKeys(eventsChan)
+		//go midiDevice.Handler.ReadKeys(eventsChan)
+		go midiDevice.Process()
 	}
 
 	if code := Client.Activate(); code != 0 {
@@ -145,8 +149,13 @@ func main() {
 	}
 
 	for {
-		event := <-eventsChan
-		//fmt.Printf("code: 0x%02x %3d, released: %5t, keyboard: \"%s\"\n", event.code, event.code, event.released, event.inputDevice.Name)
-		Events <- event
+		// ¯\_(ツ)_/¯
+		time.Sleep(time.Second)
 	}
+
+	//for {
+	//	//event := <-eventsChan
+	//	//fmt.Printf("code: 0x%02x %3d, released: %5t, keyboard: \"%s\"\n", event.code, event.code, event.released, event.inputDevice.Name)
+	//	//Events <- event
+	//}
 }
