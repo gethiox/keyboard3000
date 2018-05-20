@@ -1,0 +1,105 @@
+identification:
+  # map is used if name is founded by that name
+  # real_name: "Name of my ultimate keyboard seen in /proc/bus/input/devices file"
+
+  # optional field, used to set midi output name
+  nice_name: "Default keyboard3000 device"
+
+control:
+  1:  panic
+  74: reset
+  60: octave_up
+  59: octave_down
+  62: semitone_up
+  61: semitone_down
+  66: channel_up
+  65: channel_down
+  68: program_up
+  67: program_down
+  64: octave_add
+  63: octave_del
+
+# every midi note is allowed
+# use c4 as lowest possible note is recommended
+# decimal notation are allowed
+
+# 0: c-1 (first)
+# 12: c0
+# 24: c1
+# 36: c2
+# 48: c3
+# 60: c4
+# 72: c5
+# 84: c6
+# 96: c7
+# 108: c8
+# 120: c9
+# 127: g9 (last)
+notes:
+  86: 35
+
+  2:  35
+  16: 36
+  30: 37
+  44: 38
+
+  3:  38
+  17: 39
+  31: 40
+  45: 41
+
+  4:  41
+  18: 42
+  32: 43
+  46: 44
+
+  5:  44
+  19: 45
+  33: 46
+  47: 47
+
+  6:  47
+  20: 48
+  34: 49
+  48: 50
+
+  7:  50
+  21: 51
+  35: 52
+  49: 53
+
+  8:  53
+  22: 54
+  36: 55
+  50: 56
+
+  9:  56
+  23: 57
+  37: 58
+  51: 59
+
+  10: 59
+  24: 60
+  38: 61
+  52: 62
+
+  11: 62
+  25: 63
+  39: 64
+  53: 65
+
+  12: 65
+  26: 66
+  40: 67
+
+  13: 68
+  27: 69
+  43: 70
+
+  14: 71
+  28: 72
+
+# auto-connecting section
+auto_connect:
+  - "amsynth:midi_in"
+
