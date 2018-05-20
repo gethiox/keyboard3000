@@ -88,7 +88,7 @@ type ConfigStruct struct {
 	AutoConnect    []string         `yaml:"auto_connect"`
 }
 
-func (d MidiDevice) ChangeOctave(octaves int) {
+func (d *MidiDevice) ChangeOctave(octaves int) {
 	d.semitones += 12 * octaves
 }
 
@@ -167,14 +167,12 @@ func FindConfig(name string) (ConfigStruct, error) {
 }
 
 // main function responsible for processing raw hardware events to Midi
-func (d MidiDevice) HandleRawEvent(event keyboard.KeyEvent) int {
+func (d *MidiDevice) HandleRawEvent(event keyboard.KeyEvent) {
 	code := event.Code
 
 	bind, ok := d.keyMap[code]
 	if !ok {
-		//fmt.Printf("not in device map: '%v'\n", code)
-		return 1
-		//panic("not in device map")
+		return
 	}
 
 	switch bind.bindType {
@@ -189,25 +187,34 @@ func (d MidiDevice) HandleRawEvent(event keyboard.KeyEvent) int {
 		} else {
 			typeAndChannel = NoteOn
 			velocity = 127
+			//todo: todo
+			//d.pressedKeys[note] = append(d.pressedKeys[note], note)
 		}
-
+		//todo: todo
 		midiData := jack.MidiData{
 			0,
-			[]byte{typeAndChannel, note, velocity},
+			[]byte{typeAndChannel, note + uint8(d.semitones), velocity},
 		}
 
 		*d.events <- MidiEvent{d.MidiPort, midiData}
 
-		//fmt.Printf("Note, target: %d\n", bind.target)
 	case Control:
-		//fmt.Printf("Control, target: %d\n", bind.target)
+		switch bind.target {
+		case OctaveUp:
+			d.semitones += 12
+		case OctaveDown:
+			d.semitones -= 12
+		case SemitoneUp:
+			d.semitones += 1
+		case SemitoneDown:
+			d.semitones -= 1
+		}
 	default:
-		//panic("The Ultimatest Shiet I've ever seen")
+		panic("The Ultimatest Shiet I've ever seen")
 	}
-	return 0
 }
 
-func (d MidiDevice) Process() {
+func (d *MidiDevice) Process() {
 	for {
 		keyEvent, err := d.Handler.ReadKey()
 		if err != nil {

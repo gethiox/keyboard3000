@@ -24,12 +24,12 @@ type inputDevice struct {
 	ev       int64
 }
 
-func (d inputDevice) String() string {
+func (d *inputDevice) String() string {
 	return fmt.Sprintf("bus: 0x%04x, vendor: 0x%04x, product: 0x%04x, version: 0x%04x, handlers: %v, Name: \"%s\"", d.bus, d.vendor, d.product, d.version, d.handlers, d.Name)
 }
 
 // finds event attribute in device handlers array
-func (d inputDevice) Event() (string, error) {
+func (d *inputDevice) Event() (string, error) {
 	for _, handler := range d.handlers {
 		if len(handler) >= 5 && handler[:5] == "event" {
 			return handler, nil
@@ -39,7 +39,7 @@ func (d inputDevice) Event() (string, error) {
 }
 
 // returns event file path like /dev/input/event4
-func (d inputDevice) EventPath() (string, error) {
+func (d *inputDevice) EventPath() (string, error) {
 	event, err := d.Event()
 	if err != nil {
 		return "", err

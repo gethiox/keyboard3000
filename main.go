@@ -19,28 +19,12 @@ var Client *jack.Client
 
 func process(nframes uint32) int {
 	select {
-	case <-time.After(1 * time.Nanosecond):
+	case <-time.After(10 * time.Microsecond):
 		return 0
 	case event := <-Events:
-		fmt.Printf("evend: %v\n", event)
+		fmt.Printf("%v\n", event)
 		buffer := event.Port.MidiClearBuffer(nframes)
 		event.Port.MidiEventWrite(&event.Data, buffer)
-
-		//buffer := port.MidiClearBuffer(nframes)
-		//
-		//
-		//var midiEvent jack.MidiData
-		//
-		//midiEvent.Time = 0
-		//midiEvent.Buffer = []byte{byte((8+c) << 4), 64, 127} // note off/on variable
-		//c += 1
-		//if c == 2 {
-		//	c = 0
-		//}
-		//
-		////midiEvent := jack.MidiData{Buffer: []byte{9 << 4, 64, 127}, Time: 0}
-		//fmt.Printf("%v\n", midiEvent)
-		//port.MidiEventWrite(&midiEvent, buffer)
 	}
 
 	return 0
@@ -119,9 +103,6 @@ func main() {
 		panic("jack-ultimate-shiet")
 	}
 
-	//eventsChan := make(chan keyboard.KeyEvent, len(devices)*6)
-	//var devicePorts map[string]*jack.Port
-
 	// creating device handlers
 	for _, dev := range devices {
 		eventPath, _ := dev.EventPath()
@@ -135,11 +116,9 @@ func main() {
 		midiPort := midiSocketPlox(midiDevice.Config.Identification.NiceName)
 		midiDevice.MidiPort = midiPort
 
-		// todo devicePorts needs to have unique identifiers, maybe pointers of midiDevice can be used, they are unique enough ¯\_(ツ)_/¯
 		devicePorts[dev.Name] = midiPort
 
 		fmt.Printf("Run keyboard: \"%s\"\n", dev.Name)
-		//go midiDevice.Handler.ReadKeys(eventsChan)
 		go midiDevice.Process()
 	}
 
@@ -152,10 +131,4 @@ func main() {
 		// ¯\_(ツ)_/¯
 		time.Sleep(time.Second)
 	}
-
-	//for {
-	//	//event := <-eventsChan
-	//	//fmt.Printf("code: 0x%02x %3d, released: %5t, keyboard: \"%s\"\n", event.code, event.code, event.released, event.inputDevice.Name)
-	//	//Events <- event
-	//}
 }
