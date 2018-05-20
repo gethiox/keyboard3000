@@ -20,7 +20,7 @@ func process(nframes uint32) int {
 	case <-time.After(10 * time.Microsecond):
 		return 0
 	case event := <-Events:
-		fmt.Printf("%v\n", event)
+		fmt.Printf("%s\n", event)
 		buffer := event.Port.MidiClearBuffer(nframes)
 		event.Port.MidiEventWrite(&event.Data, buffer)
 	}

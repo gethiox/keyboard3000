@@ -31,6 +31,12 @@ type MidiEvent struct {
 	Data jack.MidiData
 }
 
+func (m MidiEvent) String() string {
+	return fmt.Sprintf("\"%s\" (time: 0x%02x, data: [0x%02x, 0x%02x, 0x%02x])", m.Port.GetName(), m.Data.Time, m.Data.Buffer[0], m.Data.Buffer[1], m.Data.Buffer[2])
+}
+
+
+
 const (
 	NoteOn  = 0x90
 	NoteOff = 0x80
@@ -191,16 +197,18 @@ func (d *MidiDevice) HandleRawEvent(event keyboard.KeyEvent) {
 		d.handleNote(bind, event)
 
 	case Control:
-		if event.Released {
-			return
-		}
-		d.handleControl(bind)
+		d.handleControl(bind, event)
 	default:
 		panic("The Ultimatest Shiet I've ever seen")
 	}
 }
 
-func (d *MidiDevice) handleControl(bind keyBind) {
+func (d *MidiDevice) handleControl(bind keyBind, event keyboard.KeyEvent) {
+	if event.Released {
+		fmt.Printf("Control event have no effect on release state")
+		return
+	}
+
 	switch bind.target {
 	case OctaveUp:
 		d.ChangeOctave(1)
@@ -232,7 +240,8 @@ func (d *MidiDevice) handleNote(bind keyBind, event keyboard.KeyEvent) {
 	if event.Released {
 		note, ok := d.pressedKeys[event.Code]
 		if !ok {
-			panic("Shiet that should not happened")
+			fmt.Println("Shiet that should not happened, ignoring that release event")
+			return
 		}
 		typeAndChannel = NoteOff | d.channel
 		velocity = 0
