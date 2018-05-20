@@ -7,6 +7,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"keyboard3000/pkg/keyboard"
+	"math/rand"
 )
 
 type MidiDevice struct {
@@ -256,7 +257,7 @@ func (d *MidiDevice) handleNote(bind keyBind, event keyboard.KeyEvent) {
 	} else {
 		note := bind.target + uint8(d.semitones)
 		typeAndChannel = NoteOn | d.channel
-		velocity = 127
+		velocity = uint8(rand.Intn(63)) + 64
 
 		midiData = jack.MidiData{
 			Time: 0,
