@@ -1,18 +1,18 @@
 package keyboard
 
 import (
-	"os"
 	"fmt"
+	"os"
 )
 
 type KeyEvent struct {
 	device   *inputDevice // event source identifier
-	code     uint8
-	released bool
+	Code     uint8
+	Released bool
 }
 
 func (ke KeyEvent) String() string {
-	return fmt.Sprintf("[RawEvent, code: 0x%02x, released: %5t, device: \"%s\"]", ke.code, ke.released, ke.device.Name)
+	return fmt.Sprintf("[RawEvent Code: (hex: 0x%02x, decimal: %3d) Released: %-5t device: \"%s\"]", ke.Code, ke.Code, ke.Released, ke.device.Name)
 }
 
 func NewEvent(device *inputDevice, code uint8, released bool) KeyEvent {
@@ -44,7 +44,7 @@ func (h Handler) ReadKey() (KeyEvent, error) {
 
 		event = buf[16:23]
 
-		//      ¯\_(ツ)_/¯                released             pressed
+		//      ¯\_(ツ)_/¯                Released             pressed
 		if event[0] == 0x01 && (event[4] == 0x00 || event[4] == 0x01) {
 			break
 		}

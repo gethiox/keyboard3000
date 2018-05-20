@@ -6,6 +6,9 @@ import (
 	"keyboard3000/pkg/keyboard"
 	"os"
 	"github.com/xthexder/go-jack"
+	"keyboard3000/pkg/device"
+	"os/signal"
+	"syscall"
 )
 
 var devicePorts = make(map[string]*jack.Port, 0)
@@ -44,10 +47,45 @@ func process(nframes uint32) int {
 func shutdown() {
 	// todo: release pressed keys before client close
 	Client.Close()
+	fmt.Printf("App shut down\n")
 	os.Exit(0)
 }
 
+func attachSigHandler() {
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+	go func() {
+		switch <-sigc {
+		default:
+			shutdown()
+		}
+	}()
+}
+
+// plox JACK server for midi socket
+func midiSocketPlox(name string) *jack.Port {
+	port := Client.PortRegister(name, jack.DEFAULT_MIDI_TYPE, jack.PortIsOutput, 0)
+	if port != nil {
+		return port
+	}
+
+	for i:=0 ; i<128; i++ {
+		portName := fmt.Sprintf("%s_%d", name, i)
+		port := Client.PortRegister(portName, jack.DEFAULT_MIDI_TYPE, jack.PortIsOutput, 0)
+		if port != nil {
+			return port
+		}
+	}
+	panic("port-related shiet occurred")
+}
+
 func main() {
+	attachSigHandler()
+
 	// collecting input devices
 	now := time.Now()
 	devices, err := keyboard.ReadDevices()
@@ -91,12 +129,14 @@ func main() {
 			panic(err)
 		}
 		handler := keyboard.NewHandler(fd, dev)
+		midiDevice := device.New(&handler)
+
+		// todo devicePorts needs to have unique identifiers, maybe pointers of midiDevice can be used, they are unique enough ¯\_(ツ)_/¯
+		devicePorts[dev.Name] = midiSocketPlox(midiDevice.Config.Identification.NiceName)
+
 
 		fmt.Printf("Run keyboard: \"%s\"\n", dev.Name)
-
-		devicePorts[dev.Name] = Client.PortRegister(dev.Name, jack.DEFAULT_MIDI_TYPE, jack.PortIsOutput, 0)
-
-		go handler.ReadKeys(eventsChan)
+		go midiDevice.Handler.ReadKeys(eventsChan)
 	}
 
 	if code := Client.Activate(); code != 0 {
