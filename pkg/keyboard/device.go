@@ -1,27 +1,27 @@
 package keyboard
 
 import (
-	"fmt"
 	"errors"
-	"strings"
-	"strconv"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"strings"
 )
 
 const devicesPath = "/proc/bus/input/devices"
 
 // keyboard inputDevice data
 type inputDevice struct {
-	bus      int64
-	vendor   int64
-	product  int64
-	version  int64
+	bus     int64
+	vendor  int64
+	product int64
+	version int64
 
 	Name     string
 	handlers []string
 
-	ev       int64
+	ev int64
 }
 
 func (d *inputDevice) String() string {

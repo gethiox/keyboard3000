@@ -1,19 +1,19 @@
 package device
 
 import (
-	"keyboard3000/pkg/keyboard"
-	"fmt"
-	"io/ioutil"
-	"gopkg.in/yaml.v2"
 	"errors"
+	"fmt"
 	"github.com/xthexder/go-jack"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"keyboard3000/pkg/keyboard"
 )
 
 type MidiDevice struct {
 	Handler *keyboard.Handler
 	Config  ConfigStruct
 
-	channel     int
+	channel     uint8
 	semitones   int
 	keyMap      keyMap
 	pressedKeys pressedKeys
@@ -22,14 +22,18 @@ type MidiDevice struct {
 	MidiPort *jack.Port
 }
 
+func (d *MidiDevice) String() string {
+	return fmt.Sprintf("MidiDevice [%s], channel: %2d, octaves: %2d (semitones: %2d)", d.Config.Identification.NiceName, d.channel, d.semitones/12, d.semitones)
+}
+
 type MidiEvent struct {
 	Port *jack.Port
 	Data jack.MidiData
 }
 
 const (
-	NoteOn  = 144
-	NoteOff = 128
+	NoteOn  = 0x90
+	NoteOff = 0x80
 )
 
 const (
@@ -72,7 +76,7 @@ type keyBind struct {
 	bindType int
 }
 
-type pressedKeys map[uint8][]uint8
+type pressedKeys map[uint8]uint8
 type keyMap map[uint8]keyBind
 
 type Identification struct {
@@ -88,8 +92,12 @@ type ConfigStruct struct {
 	AutoConnect    []string         `yaml:"auto_connect"`
 }
 
-func (d *MidiDevice) ChangeOctave(octaves int) {
-	d.semitones += 12 * octaves
+func (d *MidiDevice) ChangeOctave(value int) {
+	d.semitones += 12 * value
+}
+
+func (d *MidiDevice) ChangeChannel(value int) {
+	d.channel += uint8(value)
 }
 
 func loadConfig(data []byte) (ConfigStruct, error) {
@@ -135,7 +143,7 @@ func New(handler *keyboard.Handler, eventChan *chan MidiEvent) *MidiDevice {
 		Handler:     handler,
 		Config:      config,
 		keyMap:      keymap,
-		pressedKeys: *new(pressedKeys),
+		pressedKeys: make(pressedKeys),
 		events:      eventChan,
 	}
 }
@@ -168,50 +176,87 @@ func FindConfig(name string) (ConfigStruct, error) {
 
 // main function responsible for processing raw hardware events to Midi
 func (d *MidiDevice) HandleRawEvent(event keyboard.KeyEvent) {
+	fmt.Printf("%s\n", d)
+	fmt.Printf("%s\n", event)
 	code := event.Code
 
 	bind, ok := d.keyMap[code]
 	if !ok {
+		fmt.Println("event not in map")
 		return
 	}
 
 	switch bind.bindType {
 	case Note:
-		note := bind.target
-		var typeAndChannel byte
-		var velocity byte
-
-		if event.Released {
-			typeAndChannel = NoteOff
-			velocity = 0
-		} else {
-			typeAndChannel = NoteOn
-			velocity = 127
-			//todo: todo
-			//d.pressedKeys[note] = append(d.pressedKeys[note], note)
-		}
-		//todo: todo
-		midiData := jack.MidiData{
-			0,
-			[]byte{typeAndChannel, note + uint8(d.semitones), velocity},
-		}
-
-		*d.events <- MidiEvent{d.MidiPort, midiData}
+		d.handleNote(bind, event)
 
 	case Control:
-		switch bind.target {
-		case OctaveUp:
-			d.semitones += 12
-		case OctaveDown:
-			d.semitones -= 12
-		case SemitoneUp:
-			d.semitones += 1
-		case SemitoneDown:
-			d.semitones -= 1
+		if event.Released {
+			return
 		}
+		d.handleControl(bind)
 	default:
 		panic("The Ultimatest Shiet I've ever seen")
 	}
+}
+
+func (d *MidiDevice) handleControl(bind keyBind) {
+	switch bind.target {
+	case OctaveUp:
+		d.ChangeOctave(1)
+	case OctaveDown:
+		d.ChangeOctave(-1)
+	case SemitoneUp:
+		d.semitones += 1
+	case SemitoneDown:
+		d.semitones -= 1
+	case ChannelUp:
+		d.ChangeChannel(1)
+	case ChannelDown:
+		d.ChangeChannel(-1)
+	case Panic:
+		midiData := jack.MidiData{
+			Time:   0,
+			Buffer: []byte{0xb0 | d.channel, 0x7b, 0x00}, // panic,
+		}
+
+		*d.events <- MidiEvent{d.MidiPort, midiData}
+	}
+}
+
+func (d *MidiDevice) handleNote(bind keyBind, event keyboard.KeyEvent) {
+	var typeAndChannel byte
+	var velocity byte
+	var midiData jack.MidiData
+
+	if event.Released {
+		note, ok := d.pressedKeys[event.Code]
+		if !ok {
+			panic("Shiet that should not happened")
+		}
+		typeAndChannel = NoteOff | d.channel
+		velocity = 0
+
+		midiData = jack.MidiData{
+			Time: 0,
+			Buffer: []byte{typeAndChannel, note, velocity},
+		}
+
+		delete(d.pressedKeys, event.Code)
+
+	} else {
+		note := bind.target + uint8(d.semitones)
+		typeAndChannel = NoteOn | d.channel
+		velocity = 127
+
+		midiData = jack.MidiData{
+			Time: 0,
+			Buffer: []byte{typeAndChannel, note, velocity},
+		}
+		d.pressedKeys[event.Code] = note
+	}
+
+	*d.events <- MidiEvent{d.MidiPort, midiData}
 }
 
 func (d *MidiDevice) Process() {

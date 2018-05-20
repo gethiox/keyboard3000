@@ -2,20 +2,18 @@ package main
 
 import (
 	"fmt"
-	"time"
-	"keyboard3000/pkg/keyboard"
-	"os"
 	"github.com/xthexder/go-jack"
 	"keyboard3000/pkg/device"
+	"keyboard3000/pkg/keyboard"
+	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 var devicePorts = make(map[string]*jack.Port, 0)
 var Events = make(chan device.MidiEvent, 0)
 var Client *jack.Client
-
-//var c int
 
 func process(nframes uint32) int {
 	select {
