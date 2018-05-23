@@ -11,14 +11,11 @@ import (
 	"time"
 )
 
-// just an local unused collection of opened midi ports
-var devicePorts = make(map[string]*jack.Port)
-
-// main midi event channel
-var MidiEvents = make(chan keyboard.MidiEvent)
-
-// global Jack client
-var Client *jack.Client
+var (
+	devicePorts = make(map[string]*jack.Port)   // just an local unused collection of opened midi ports
+	MidiEvents  = make(chan keyboard.MidiEvent) // main midi event channel
+	Client      *jack.Client                    // global Jack client
+)
 
 // midi event processing callback
 func process(nframes uint32) int {
