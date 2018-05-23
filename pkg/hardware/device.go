@@ -1,4 +1,4 @@
-package keyboard
+package hardware
 
 import (
 	"fmt"

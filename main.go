@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/xthexder/go-jack"
-	"keyboard3000/pkg/device"
+	"keyboard3000/pkg/hardware"
 	"keyboard3000/pkg/keyboard"
 	"os"
 	"os/signal"
@@ -12,7 +12,7 @@ import (
 )
 
 var devicePorts = make(map[string]*jack.Port, 0)
-var Events = make(chan device.MidiEvent, 0)
+var Events = make(chan keyboard.MidiEvent, 0)
 var Client *jack.Client
 
 func process(nframes uint32) int {
@@ -50,7 +50,7 @@ func attachSigHandler() {
 	}()
 }
 
-// plox JACK server for midi socket
+// plox JACK server for keyboard socket
 func midiSocketPlox(name string) *jack.Port {
 	port := Client.PortRegister(name, jack.DEFAULT_MIDI_TYPE, jack.PortIsOutput, 0)
 	if port != nil {
@@ -72,7 +72,7 @@ func main() {
 
 	// collecting input devices
 	now := time.Now()
-	devices, err := keyboard.ReadDevices()
+	devices, err := hardware.ReadDevices()
 	fmt.Printf("finding keyboard devices takes me: %s\n", time.Since(now))
 	if err != nil {
 		panic(err)
@@ -109,8 +109,8 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		handler := keyboard.NewHandler(fd, dev)
-		midiDevice := device.New(&handler, &Events)
+		handler := hardware.NewHandler(fd, dev)
+		midiDevice := keyboard.New(&handler, &Events)
 		midiPort := midiSocketPlox(midiDevice.Config.Identification.NiceName)
 		midiDevice.MidiPort = midiPort
 
