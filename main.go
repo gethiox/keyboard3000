@@ -5,6 +5,7 @@ import (
 	"github.com/xthexder/go-jack"
 	"keyboard3000/pkg/hardware"
 	"keyboard3000/pkg/keyboard"
+	"keyboard3000/pkg/logging"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,10 +21,10 @@ var (
 // midi event processing callback
 func process(nframes uint32) int {
 	select {
-	case <-time.After(10 * time.Microsecond):
+	case <-time.After(time.Microsecond):
 		return 0
 	case event := <-MidiEvents:
-		fmt.Printf("%s\n", event)
+		logging.Infof("%s\n", event)
 		buffer := event.Port.MidiClearBuffer(nframes)
 		event.Port.MidiEventWrite(&event.Data, buffer)
 	}
@@ -34,7 +35,7 @@ func process(nframes uint32) int {
 func shutdown() {
 	// todo: release pressed keys before client close
 	Client.Close()
-	fmt.Printf("App shut down\n")
+	logging.Infof("App shut down\n")
 	os.Exit(0)
 }
 
@@ -60,6 +61,7 @@ func midiSocketPlox(name string) *jack.Port {
 		return port
 	}
 
+	// in case of already opened port with requested name adding suffixes is tried
 	for i := 0; i < 128; i++ {
 		portName := fmt.Sprintf("%s_%d", name, i)
 		port := Client.PortRegister(portName, jack.DEFAULT_MIDI_TYPE, jack.PortIsOutput, 0)
@@ -76,7 +78,8 @@ func main() {
 	// collecting input devices
 	now := time.Now()
 	devices, err := hardware.ReadDevices()
-	fmt.Printf("finding keyboard devices takes me: %s\n", time.Since(now))
+
+	logging.Infof("finding keyboard devices takes me: %s\n", time.Since(now))
 	if err != nil {
 		panic(err)
 	}
@@ -85,9 +88,9 @@ func main() {
 	now = time.Now()
 	for _, dev := range devices {
 		eventPath, _ := dev.EventPath()
-		fmt.Printf("%s\n", eventPath)
+		logging.Infof("%s\n", eventPath)
 	}
-	fmt.Printf("finding event paths takes me: %s\n", time.Since(now))
+	logging.Infof("finding event paths takes me: %s\n", time.Since(now))
 
 	// opening JackClient
 	var status int
@@ -123,7 +126,7 @@ func main() {
 		}
 		devicePorts[event] = midiPort
 
-		fmt.Printf("Run keyboard: \"%s\"\n", dev.Name)
+		logging.Infof("Run keyboard: \"%s\"\n", dev.Name)
 		go midiDevice.Process()
 	}
 

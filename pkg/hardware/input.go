@@ -104,6 +104,7 @@ func readValues(record string, dev *InputDevice) {
 	}
 }
 
+
 func createRecords(data string) []string {
 	return strings.Split(data, "\n")
 }

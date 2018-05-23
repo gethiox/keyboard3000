@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"keyboard3000/pkg/hardware"
+	"keyboard3000/pkg/logging"
 )
 
 type MidiDevice struct {
@@ -33,7 +34,7 @@ type MidiEvent struct {
 }
 
 func (m MidiEvent) String() string {
-	return fmt.Sprintf("\"%s\" (time: 0x%02x, data: [0x%02x, 0x%02x, 0x%02x])", m.Port.GetName(), m.Data.Time, m.Data.Buffer[0], m.Data.Buffer[1], m.Data.Buffer[2])
+	return fmt.Sprintf("MidiEvent, time: 0x%02x, data: [0x%02x, 0x%02x, 0x%02x]), port: \"%s\"", m.Data.Time, m.Data.Buffer[0], m.Data.Buffer[1], m.Data.Buffer[2], m.Port.GetName())
 }
 
 const (
@@ -126,7 +127,7 @@ func New(handler *hardware.Handler, eventChan *chan MidiEvent) *MidiDevice {
 				panic(err)
 			}
 			config, err = loadConfig(data)
-			fmt.Printf(
+			logging.Infof(
 				"Shiet, configuration is missed for \"%s\" device, but default loaded at least ¯\\_(ツ)_/¯.\n",
 				handler.Device.Name,
 			)
@@ -172,7 +173,7 @@ func FindConfig(name string) (ConfigStruct, error) {
 		}
 
 		if name == config.Identification.RealName {
-			fmt.Printf("Great, configuration found for \"%s\" device.\n", name)
+			logging.Infof("Great, configuration found for \"%s\" device.\n", name)
 			return config, nil
 		}
 	}
@@ -181,8 +182,8 @@ func FindConfig(name string) (ConfigStruct, error) {
 
 // main function responsible for processing raw hardware events to Midi
 func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
-	fmt.Printf("%s\n", d)
-	fmt.Printf("%s\n", event)
+	logging.Infof("%s\n", d)
+	logging.Infof("%s\n", event)
 	code := event.Code
 
 	bind, ok := d.keyMap[code]
@@ -204,7 +205,7 @@ func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 
 func (d *MidiDevice) handleControl(bind keyBind, event hardware.KeyEvent) {
 	if event.Released {
-		fmt.Printf("Control event have no effect on release state\n")
+		logging.Infof("Control event have no effect on release state\n")
 		return
 	}
 
