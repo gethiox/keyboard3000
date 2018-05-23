@@ -11,15 +11,21 @@ import (
 	"time"
 )
 
-var devicePorts = make(map[string]*jack.Port, 0)
-var Events = make(chan keyboard.MidiEvent, 0)
+// just an local unused collection of opened midi ports
+var devicePorts = make(map[string]*jack.Port)
+
+// main midi event channel
+var MidiEvents = make(chan keyboard.MidiEvent)
+
+// global Jack client
 var Client *jack.Client
 
+// midi event processing callback
 func process(nframes uint32) int {
 	select {
 	case <-time.After(10 * time.Microsecond):
 		return 0
-	case event := <-Events:
+	case event := <-MidiEvents:
 		fmt.Printf("%s\n", event)
 		buffer := event.Port.MidiClearBuffer(nframes)
 		event.Port.MidiEventWrite(&event.Data, buffer)
@@ -110,11 +116,15 @@ func main() {
 			panic(err)
 		}
 		handler := hardware.NewHandler(fd, dev)
-		midiDevice := keyboard.New(&handler, &Events)
+		midiDevice := keyboard.New(&handler, &MidiEvents)
 		midiPort := midiSocketPlox(midiDevice.Config.Identification.NiceName)
 		midiDevice.MidiPort = midiPort
 
-		devicePorts[dev.Name] = midiPort
+		event, err := dev.Event()
+		if err != nil {
+			continue
+		}
+		devicePorts[event] = midiPort
 
 		fmt.Printf("Run keyboard: \"%s\"\n", dev.Name)
 		go midiDevice.Process()
@@ -126,7 +136,6 @@ func main() {
 	}
 
 	for {
-		// ¯\_(ツ)_/¯
-		time.Sleep(time.Second)
+		time.Sleep(time.Millisecond * 10) // ¯\_(ツ)_/¯
 	}
 }
