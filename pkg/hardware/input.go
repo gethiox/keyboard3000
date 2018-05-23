@@ -9,10 +9,7 @@ import (
 	"strings"
 )
 
-const devicesPath = "/proc/bus/input/devices"
-
-// keyboard inputDevice data
-type inputDevice struct {
+type InputDevice struct {
 	bus     int64
 	vendor  int64
 	product int64
@@ -24,12 +21,33 @@ type inputDevice struct {
 	ev int64
 }
 
-func (d *inputDevice) String() string {
+type NotAnKeyboardError struct {
+	message string
+}
+
+func (e NotAnKeyboardError) Error() string {
+	return fmt.Sprintf("%s", e.message)
+}
+
+func NewInputDevice(section string) (InputDevice, error) {
+	device := InputDevice{}
+
+	for _, record := range createRecords(section) {
+		readValues(record, &device)
+	}
+	if device.ev == 0x120013 { // magic ¯\_(ツ)_/¯
+		return device, nil
+	}
+
+	return device, NotAnKeyboardError{"Shiet, it's not an keyboard, sry bro"}
+}
+
+func (d *InputDevice) String() string {
 	return fmt.Sprintf("bus: 0x%04x, vendor: 0x%04x, product: 0x%04x, version: 0x%04x, handlers: %v, Name: \"%s\"", d.bus, d.vendor, d.product, d.version, d.handlers, d.Name)
 }
 
 // finds event attribute in device handlers array
-func (d *inputDevice) Event() (string, error) {
+func (d *InputDevice) Event() (string, error) {
 	for _, handler := range d.handlers {
 		if len(handler) >= 5 && handler[:5] == "event" {
 			return handler, nil
@@ -39,7 +57,7 @@ func (d *inputDevice) Event() (string, error) {
 }
 
 // returns event file path like /dev/input/event4
-func (d *inputDevice) EventPath() (string, error) {
+func (d *InputDevice) EventPath() (string, error) {
 	event, err := d.Event()
 	if err != nil {
 		return "", err
@@ -55,7 +73,7 @@ func (d *inputDevice) EventPath() (string, error) {
 }
 
 // reads parameters from section and update device entity
-func readValues(record string, dev *inputDevice) {
+func readValues(record string, dev *InputDevice) {
 	switch string(record[0]) {
 	case "N": // Name
 		dev.Name = string(record[9 : len(record)-1])
@@ -96,22 +114,21 @@ func createSections(data []byte) []string {
 }
 
 // reads available keyboard device
-func ReadDevices() ([]inputDevice, error) {
-	data, err := ioutil.ReadFile(devicesPath)
+func ReadDevices() ([]InputDevice, error) {
+	data, err := ioutil.ReadFile("/proc/bus/input/devices")
 	if err != nil {
 		return nil, err
 	}
 
-	var devices []inputDevice
+	var devices []InputDevice
 
 	for _, section := range createSections(data) {
-		dev := inputDevice{}
-		for _, record := range createRecords(section) {
-			readValues(record, &dev)
+		device, err := NewInputDevice(section)
+		if err != nil {
+			continue
 		}
-		if dev.ev == 0x120013 { // magic ¯\_(ツ)_/¯
-			devices = append(devices, dev)
-		}
+		devices = append(devices, device)
+
 	}
 
 	return devices, nil
