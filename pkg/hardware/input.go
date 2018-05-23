@@ -115,6 +115,7 @@ func createSections(data []byte) []string {
 
 // reads available keyboard device
 func ReadDevices() ([]InputDevice, error) {
+	// this data can be potentially collected from /sys/devices filesystem layer instead from this file
 	data, err := ioutil.ReadFile("/proc/bus/input/devices")
 	if err != nil {
 		return nil, err
