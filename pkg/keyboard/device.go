@@ -1,14 +1,33 @@
 package keyboard
 
 import (
-	"errors"
 	"fmt"
 	"github.com/xthexder/go-jack"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"math/rand"
 	"keyboard3000/pkg/hardware"
 	"keyboard3000/pkg/logging"
+)
+
+const (
+	NoteOn  uint8 = 0x90 // Note On Midi data, first four bit, should be mixed with channel bits (last four bits)`
+	NoteOff uint8 = 0x80 // note Off Midi data, first four bit, should be mixed with channel bits (last four bits)
+
+	Note    = iota
+	Control
+
+	Panic         // ControlEvents targets
+	Reset
+	OctaveUp
+	OctaveDown
+	SemitoneUp
+	SemitoneDown
+	ChannelUp
+	ChannelDown
+	ProgramUp
+	ProgramDown
+	OctaveAdd
+	OctaveDel
 )
 
 type MidiDevice struct {
@@ -24,99 +43,18 @@ type MidiDevice struct {
 	MidiPort *jack.Port
 }
 
-func (d *MidiDevice) String() string {
-	return fmt.Sprintf("MidiDevice [%s], channel: %2d, octaves: %2d (semitones: %2d)", d.Config.Identification.NiceName, d.channel, d.semitones/12, d.semitones)
-}
+type pressedKeys map[uint8]uint8
+type keyMap map[uint8]keyBind
 
 type MidiEvent struct {
 	Port *jack.Port
 	Data jack.MidiData
 }
 
-func (m MidiEvent) String() string {
-	return fmt.Sprintf("MidiEvent, time: 0x%02x, data: [0x%02x, 0x%02x, 0x%02x]), port: \"%s\"", m.Data.Time, m.Data.Buffer[0], m.Data.Buffer[1], m.Data.Buffer[2], m.Port.GetName())
-}
-
-const (
-	NoteOn  = 0x90
-	NoteOff = 0x80
-)
-
-const (
-	Note    = iota
-	Control
-)
-
-const (
-	Panic        = iota
-	Reset
-	OctaveUp
-	OctaveDown
-	SemitoneUp
-	SemitoneDown
-	ChannelUp
-	ChannelDown
-	ProgramUp
-	ProgramDown
-	OctaveAdd
-	OctaveDel
-)
-
-var stringToConst = map[string]uint8{
-	"panic":         Panic,
-	"reset":         Reset,
-	"octave_up":     OctaveUp,
-	"octave_down":   OctaveDown,
-	"semitone_up":   SemitoneUp,
-	"semitone_down": SemitoneDown,
-	"channel_up":    ChannelUp,
-	"channel_down":  ChannelDown,
-	"program_up":    ProgramUp,
-	"program_down":  ProgramDown,
-	"octave_add":    OctaveAdd,
-	"octave_del":    OctaveDel,
-}
-
 type keyBind struct {
 	target   uint8
 	bindType int
 }
-
-type pressedKeys map[uint8]uint8
-type keyMap map[uint8]keyBind
-
-type Identification struct {
-	RealName string `yaml:"real_name"`
-	NiceName string `yaml:"nice_name"`
-}
-
-// configuration yaml structure
-type ConfigStruct struct {
-	Identification Identification   `yaml:"identification"`
-	Control        map[uint8]string `yaml:"control"`
-	Notes          map[uint8]uint8  `yaml:"notes"`
-	AutoConnect    []string         `yaml:"auto_connect"`
-}
-
-func (d *MidiDevice) ChangeOctave(value int) {
-	d.semitones += 12 * value
-}
-
-func (d *MidiDevice) ChangeChannel(value int) {
-	d.channel += uint8(value)
-}
-
-func loadConfig(data []byte) (ConfigStruct, error) {
-	var config ConfigStruct //Config := ConfigStruct{}
-	err := yaml.Unmarshal(data, &config)
-	if err != nil {
-		return ConfigStruct{}, err
-	}
-	return config, nil
-
-}
-
-var configNotFoundError = errors.New("shiet, Config not founded")
 
 func New(handler *hardware.Handler, eventChan *chan MidiEvent) *MidiDevice {
 	config, err := FindConfig(handler.Device.Name)
@@ -154,30 +92,12 @@ func New(handler *hardware.Handler, eventChan *chan MidiEvent) *MidiDevice {
 	}
 }
 
-// finds and return KeyMap
-func FindConfig(name string) (ConfigStruct, error) {
-	files, err := ioutil.ReadDir("./maps/")
-	if err != nil {
-		panic(err)
-	}
+func (d *MidiDevice) ChangeOctave(value int) {
+	d.semitones += 12 * value
+}
 
-	for _, file := range files {
-		data, err := ioutil.ReadFile("./maps/" + file.Name())
-		if err != nil {
-			panic(err)
-		}
-
-		config, err := loadConfig(data)
-		if err != nil {
-			panic(err)
-		}
-
-		if name == config.Identification.RealName {
-			logging.Infof("Great, configuration found for \"%s\" device.\n", name)
-			return config, nil
-		}
-	}
-	return ConfigStruct{}, configNotFoundError
+func (d *MidiDevice) ChangeChannel(value int) {
+	d.channel += uint8(value)
 }
 
 // main function responsible for processing raw hardware events to Midi
@@ -188,7 +108,7 @@ func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 
 	bind, ok := d.keyMap[code]
 	if !ok {
-		fmt.Println("event not in map")
+		logging.Infof("event not in map")
 		return
 	}
 
@@ -240,7 +160,7 @@ func (d *MidiDevice) handleNote(bind keyBind, event hardware.KeyEvent) {
 	if event.Released {
 		note, ok := d.pressedKeys[event.Code]
 		if !ok {
-			fmt.Println("Shiet that should not happened, ignoring that release event")
+			logging.Infof("Shiet that should not happened, ignoring that release event")
 			return
 		}
 		typeAndChannel = NoteOff | d.channel
@@ -276,4 +196,12 @@ func (d *MidiDevice) Process() {
 		}
 		d.HandleRawEvent(keyEvent)
 	}
+}
+
+func (m MidiEvent) String() string {
+	return fmt.Sprintf("MidiEvent, time: 0x%02x, data: [0x%02x, 0x%02x, 0x%02x]), port: \"%s\"", m.Data.Time, m.Data.Buffer[0], m.Data.Buffer[1], m.Data.Buffer[2], m.Port.GetName())
+}
+
+func (d *MidiDevice) String() string {
+	return fmt.Sprintf("MidiDevice [%s], channel: %2d, octaves: %2d (semitones: %2d)", d.Config.Identification.NiceName, d.channel, d.semitones/12, d.semitones)
 }

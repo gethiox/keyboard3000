@@ -131,7 +131,7 @@ func main() {
 	}
 
 	if code := Client.Activate(); code != 0 {
-		fmt.Println("Failed to activate client: ", jack.Strerror(code))
+		logging.Infof("Failed to activate client: ", jack.Strerror(code))
 		return
 	}
 
