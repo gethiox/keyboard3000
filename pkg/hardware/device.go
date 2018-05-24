@@ -61,13 +61,3 @@ func (h Handler) ReadKey() (KeyEvent, error) {
 
 	return NewEvent(&h.Device, event[2], released), nil
 }
-
-func (h Handler) ReadKeys(events chan KeyEvent) {
-	for {
-		event, err := h.ReadKey()
-		if err != nil {
-			panic(err)
-		}
-		events <- event
-	}
-}
