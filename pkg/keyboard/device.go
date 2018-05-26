@@ -92,6 +92,15 @@ func New(handler *hardware.Handler, eventChan *chan MidiEvent) *MidiDevice {
 	}
 }
 
+func (d *MidiDevice) Close() {
+	midiData := jack.MidiData{
+		Time:   0,
+		Buffer: []byte{0xb0 | d.channel, 0x7b, 0x00}, // panic,
+	}
+
+	*d.events <- MidiEvent{d.MidiPort, midiData}
+}
+
 func (d *MidiDevice) ChangeOctave(value int) {
 	d.semitones += 12 * value
 }

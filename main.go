@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	devicePorts = make(map[string]*jack.Port)   // just an local unused collection of opened midi ports
-	MidiEvents  = make(chan keyboard.MidiEvent) // main midi event channel
-	Client      *jack.Client                    // global Jack client
+	keybiardDevuces = make(map[string]*keyboard.MidiDevice)
+	devicePorts     = make(map[string]*jack.Port)       // just an local unused collection of opened midi ports
+	MidiEvents      = make(chan keyboard.MidiEvent, 10) // main midi event channel
+	Client          *jack.Client                        // global Jack client
 )
 
 // midi event processing callback
@@ -33,7 +34,10 @@ func process(nframes uint32) int {
 }
 
 func shutdown() {
-	// todo: release pressed keys before client close
+	for _, device := range keybiardDevuces {
+		device.Close()
+	}
+	time.Sleep(time.Millisecond * 10) // make sure that Panic events will be processed by jack process() callback
 	Client.Close()
 	logging.Infof("App shut down\n")
 	os.Exit(0)
@@ -119,6 +123,7 @@ func main() {
 		midiDevice := keyboard.New(&handler, &MidiEvents)
 		midiPort := midiSocketPlox(midiDevice.Config.Identification.NiceName)
 		midiDevice.MidiPort = midiPort
+		keybiardDevuces[midiDevice.Config.Identification.NiceName] = midiDevice
 
 		event, err := dev.Event()
 		if err != nil {
