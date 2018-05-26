@@ -19,6 +19,8 @@ var (
 	Client          *jack.Client                       // global Jack client
 )
 
+const appName = "Keyboard3000"
+
 // midi event processing callback
 func process(nframes uint32) int {
 	select {
@@ -98,7 +100,7 @@ func main() {
 
 	// opening JackClient
 	var status int
-	Client, status = jack.ClientOpen("Keyboard3000", jack.NoStartServer)
+	Client, status = jack.ClientOpen(appName, jack.NoStartServer)
 	if status != 0 {
 		panic("jack-Shiet")
 	}
@@ -109,6 +111,11 @@ func main() {
 	status = Client.SetProcessCallback(process)
 	if status != 0 {
 		panic("jack-ultimate-shiet")
+	}
+
+	if code := Client.Activate(); code != 0 {
+		logging.Infof("Failed to activate client: ", jack.Strerror(code))
+		return
 	}
 
 	// creating device handlers
@@ -131,13 +138,20 @@ func main() {
 		}
 		devicePorts[event] = midiPort
 
+		for _, target := range midiDevice.Config.AutoConnect {
+			targetPort := Client.GetPortByName(target)
+			if targetPort != nil {
+				code := Client.ConnectPorts(midiPort, targetPort)
+				if code != 0 {
+					logging.Infof("Autoconnect failed from \"%s\" to \"%s\"", midiPort, targetPort)
+				} else {
+					logging.Infof("Autoconnect succeeded from \"%s\" to \"%s\"", midiPort, targetPort)
+				}
+			}
+		}
+
 		logging.Infof("Run keyboard: \"%s\"\n", dev.Name)
 		go midiDevice.Process()
-	}
-
-	if code := Client.Activate(); code != 0 {
-		logging.Infof("Failed to activate client: ", jack.Strerror(code))
-		return
 	}
 
 	for {
