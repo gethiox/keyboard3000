@@ -118,8 +118,6 @@ func (d *MidiDevice) ChangeChannel(value int) {
 
 // main function responsible for processing raw hardware events to Midi
 func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
-	logging.Infof("%s\n", d)
-	logging.Infof("%s\n", event)
 	code := event.Code
 
 	bind, ok := d.keyMap[code]
@@ -131,17 +129,17 @@ func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 	switch bind.bindType {
 	case Note:
 		d.handleNote(bind, event)
-
 	case Control:
 		d.handleControl(bind, event)
 	default:
 		panic("The Ultimatest Shiet I've ever seen")
 	}
+	logging.Infof("%s\n", d)
+	//logging.Infof("%s\n", event)
 }
 
 func (d *MidiDevice) handleControl(bind keyBind, event hardware.KeyEvent) {
 	if event.Released {
-		logging.Infof("Control event have no effect on release state\n")
 		return
 	}
 
@@ -177,11 +175,11 @@ func (d *MidiDevice) handleNote(bind keyBind, event hardware.KeyEvent) {
 	if event.Released {
 		note, ok := d.pressedKeys[event.Code]
 		if !ok {
-			logging.Infof("Shiet that should not happened, ignoring that release event")
+			logging.Infof("somehow that key wasn't pressed yet on that device, skipping NoteOff event generation")
 			return
 		}
 		times, _ := d.midiPresses[note]
-		if times > 1 {
+		if times > 1 { // key already pressed, skipping
 			delete(d.pressedKeys, event.Code)
 			d.midiPresses[note] -= 1
 			return
@@ -241,5 +239,5 @@ func (m MidiEvent) String() string {
 }
 
 func (d *MidiDevice) String() string {
-	return fmt.Sprintf("MidiDevice [%s], channel: %2d, octaves: %2d (semitones: %2d)", d.Config.Identification.NiceName, d.channel, d.semitones/12, d.semitones)
+	return fmt.Sprintf("MidiDevice, channel: %2d, octaves: %2d (semitones: %2d), active keys: %d, [%s]", d.channel, d.semitones/12, d.semitones, len(d.pressedKeys), d.Config.Identification.NiceName)
 }

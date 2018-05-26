@@ -23,7 +23,7 @@ var (
 func process(nframes uint32) int {
 	select {
 	case event := <-MidiEvents:
-		logging.Infof("%s\n", event)
+		//logging.Infof("%s\n", event)
 		buffer := event.Port.MidiClearBuffer(nframes)
 		event.Port.MidiEventWrite(&event.Data, buffer)
 	default:
