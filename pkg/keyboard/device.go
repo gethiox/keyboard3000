@@ -194,12 +194,16 @@ func (d *MidiDevice) handleNote(bind keyBind, event hardware.KeyEvent) {
 	if event.Released {
 		for channel := range d.pressedKeys { // in fact there should not be more than one iteration in most cases
 			note, ok := d.pressedKeys[channel][event.Code]
-			if !ok { // key is not pressed on that channel
+			if !ok { // keyboard key is not pressed on that channel
 				logging.Infof("somehow that key wasn't pressed yet on that device (and that channel), skipping NoteOff event generation")
 				continue
 			}
-			times, _ := d.midiPresses[channel][note]
-			if times > 1 { // key already pressed, skipping
+
+			times, ok := d.midiPresses[channel][note];
+			if !ok {
+				panic("lokks like totally shiet, I expect to have direct access to that value every time when I wish to")
+			}
+			if times > 1 { // key already pressed, skipping NoteOff generation event
 				delete(d.pressedKeys[channel], event.Code)
 				d.midiPresses[channel][note] -= 1
 				continue
@@ -224,14 +228,13 @@ func (d *MidiDevice) handleNote(bind keyBind, event hardware.KeyEvent) {
 		}
 
 	} else {
-		if _, ok := d.pressedKeys[d.channel]; !ok {
-			// create map on current channel if not exist
+		if _, ok := d.pressedKeys[d.channel]; !ok { // create map on current channel if not exist
 			d.pressedKeys[d.channel] = make(map[uint8]uint8)
 		}
 
 		note := bind.target + uint8(d.semitones)
-		//if _, ok := d.pressedKeys[d.channel]
-		if times, ok := d.midiPresses[d.channel][note]; ok && times > 0 {
+
+		if times, ok := d.midiPresses[d.channel][note]; ok && times > 0 { // skips NoteOn generation when note is already pressed by other keyboard key
 			d.pressedKeys[d.channel][event.Code] = note
 			d.midiPresses[d.channel][note] += 1
 			return
