@@ -14,20 +14,20 @@ import (
 
 var (
 	keybiardDevuces = make(map[string]*keyboard.MidiDevice)
-	devicePorts     = make(map[string]*jack.Port)       // just an local unused collection of opened midi ports
-	MidiEvents      = make(chan keyboard.MidiEvent, 10) // main midi event channel
-	Client          *jack.Client                        // global Jack client
+	devicePorts     = make(map[string]*jack.Port)      // just an local unused collection of opened midi ports
+	MidiEvents      = make(chan keyboard.MidiEvent, 6) // main midi event channel
+	Client          *jack.Client                       // global Jack client
 )
 
 // midi event processing callback
 func process(nframes uint32) int {
 	select {
-	case <-time.After(time.Microsecond):
-		return 0
 	case event := <-MidiEvents:
 		logging.Infof("%s\n", event)
 		buffer := event.Port.MidiClearBuffer(nframes)
 		event.Port.MidiEventWrite(&event.Data, buffer)
+	default:
+		return 0
 	}
 
 	return 0

@@ -34,16 +34,22 @@ type MidiDevice struct {
 	Handler *hardware.Handler
 	Config  ConfigStruct
 
-	channel     uint8
-	semitones   int
+	channel   uint8
+	semitones int
+
 	keyMap      keyMap
 	pressedKeys pressedKeys
+	midiPresses midiPresses
 
 	events   *chan MidiEvent
 	MidiPort *jack.Port
 }
 
-type pressedKeys map[uint8]uint8
+// oressedKyes keeps track on which keyboard button triggered which midi note
+type pressedKeys map[uint8]uint8 // map[keyboardCode]MidiNote
+// midiPresses keeps track on how many times was pressed down
+type midiPresses map[uint8]uint8 // map[MidiNote]times
+
 type keyMap map[uint8]keyBind
 
 type MidiEvent struct {
@@ -88,6 +94,7 @@ func New(handler *hardware.Handler, eventChan *chan MidiEvent) *MidiDevice {
 		Config:      config,
 		keyMap:      keymap,
 		pressedKeys: make(pressedKeys),
+		midiPresses: make(midiPresses),
 		events:      eventChan,
 	}
 }
@@ -166,12 +173,20 @@ func (d *MidiDevice) handleNote(bind keyBind, event hardware.KeyEvent) {
 	var velocity byte
 	var midiData jack.MidiData
 
+	// todo: handle channel change state
 	if event.Released {
 		note, ok := d.pressedKeys[event.Code]
 		if !ok {
 			logging.Infof("Shiet that should not happened, ignoring that release event")
 			return
 		}
+		times, _ := d.midiPresses[note]
+		if times > 1 {
+			delete(d.pressedKeys, event.Code)
+			d.midiPresses[note] -= 1
+			return
+		}
+
 		typeAndChannel = NoteOff | d.channel
 		velocity = 0
 
@@ -179,11 +194,19 @@ func (d *MidiDevice) handleNote(bind keyBind, event hardware.KeyEvent) {
 			Time:   0,
 			Buffer: []byte{typeAndChannel, note, velocity},
 		}
+		*d.events <- MidiEvent{d.MidiPort, midiData}
 
+		d.midiPresses[note] = 0
 		delete(d.pressedKeys, event.Code)
-
 	} else {
 		note := bind.target + uint8(d.semitones)
+		times, ok := d.midiPresses[note]
+		if ok && times > 0 {
+			d.pressedKeys[event.Code] = note
+			d.midiPresses[note] += 1
+			return
+		}
+
 		typeAndChannel = NoteOn | d.channel
 		velocity = uint8(rand.Intn(63)) + 64
 
@@ -191,10 +214,16 @@ func (d *MidiDevice) handleNote(bind keyBind, event hardware.KeyEvent) {
 			Time:   0,
 			Buffer: []byte{typeAndChannel, note, velocity},
 		}
+		*d.events <- MidiEvent{d.MidiPort, midiData}
 		d.pressedKeys[event.Code] = note
-	}
 
-	*d.events <- MidiEvent{d.MidiPort, midiData}
+		_, ok = d.midiPresses[note]
+		if !ok {
+			d.midiPresses[note] = 1
+		} else {
+			d.midiPresses[note] += 1
+		}
+	}
 }
 
 func (d *MidiDevice) Process() {
