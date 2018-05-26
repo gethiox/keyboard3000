@@ -7,11 +7,16 @@ import (
 	"math/rand"
 	"keyboard3000/pkg/hardware"
 	"keyboard3000/pkg/logging"
+	"keyboard3000/pkg/modifiers"
 )
 
 const (
-	NoteOn  uint8 = 0x90 // Note On Midi data, first four bit, should be mixed with channel bits (last four bits)`
-	NoteOff uint8 = 0x80 // note Off Midi data, first four bit, should be mixed with channel bits (last four bits)
+	//  channel info are in first byte and last four bits
+	MidiNoteOn         uint8 = 0x90 // first byte, first four bit mask, should be mixed with channel bits (last four bits)`
+	MidiNoteOff        uint8 = 0x80
+	MidiControlAndMode uint8 = 0xb0
+
+	MidiPanic uint8 = 0x7b // all notes off (status bytes)
 
 	Note    = iota
 	Control
@@ -35,7 +40,7 @@ type MidiDevice struct {
 	Config  ConfigStruct
 
 	channel   uint8
-	semitones int
+	semitones uint8
 
 	keyMap      keyMap
 	pressedKeys pressedKeys
@@ -43,12 +48,14 @@ type MidiDevice struct {
 
 	events   *chan MidiEvent
 	MidiPort *jack.Port
+
+	modifiers []modifiers.Modifier
 }
 
 // oressedKyes keeps track on which keyboard button triggered which midi note
-type pressedKeys map[uint8]uint8 // map[keyboardCode]MidiNote
+type pressedKeys map[uint8]map[uint8]uint8 // map[Channel][keyboardCode]MidiNote
 // midiPresses keeps track on how many times was pressed down
-type midiPresses map[uint8]uint8 // map[MidiNote]times
+type midiPresses map[uint8]map[uint8]uint8 // map[Channel][MidiNote]times
 
 type keyMap map[uint8]keyBind
 
@@ -89,7 +96,7 @@ func New(handler *hardware.Handler, eventChan *chan MidiEvent) *MidiDevice {
 		keymap[k] = keyBind{target: stringToConst[v], bindType: Control}
 	}
 
-	return &MidiDevice{
+	device := &MidiDevice{
 		Handler:     handler,
 		Config:      config,
 		keyMap:      keymap,
@@ -97,23 +104,34 @@ func New(handler *hardware.Handler, eventChan *chan MidiEvent) *MidiDevice {
 		midiPresses: make(midiPresses),
 		events:      eventChan,
 	}
+
+	// generate maps for channels
+	for i := 0; i < 16; i++ {
+		device.midiPresses[uint8(i)] = make(map[uint8]uint8)
+		// generation for pressedKeys is not needed because maps there are generated dynamically for performance purpose (I hope)
+	}
+	return device
 }
 
 func (d *MidiDevice) Close() {
 	midiData := jack.MidiData{
 		Time:   0,
-		Buffer: []byte{0xb0 | d.channel, 0x7b, 0x00}, // panic,
+		Buffer: []byte{MidiControlAndMode | d.channel, MidiPanic, 0x00},
 	}
 
 	*d.events <- MidiEvent{d.MidiPort, midiData}
 }
 
+func (d *MidiDevice) ChangeSemitone(value int) {
+	d.semitones += uint8(value)
+}
+
 func (d *MidiDevice) ChangeOctave(value int) {
-	d.semitones += 12 * value
+	d.semitones += 12 * uint8(value)
 }
 
 func (d *MidiDevice) ChangeChannel(value int) {
-	d.channel += uint8(value)
+	d.channel = (d.channel + uint8(value)) % 16
 }
 
 // main function responsible for processing raw hardware events to Midi
@@ -122,8 +140,11 @@ func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 
 	bind, ok := d.keyMap[code]
 	if !ok {
-		logging.Infof("event not in map")
+		logging.Infof("%s [event not in map]", event)
+		logging.Infof("%s\n", d)
 		return
+	} else {
+		logging.Infof("%s\n", event)
 	}
 
 	switch bind.bindType {
@@ -135,7 +156,6 @@ func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 		panic("The Ultimatest Shiet I've ever seen")
 	}
 	logging.Infof("%s\n", d)
-	//logging.Infof("%s\n", event)
 }
 
 func (d *MidiDevice) handleControl(bind keyBind, event hardware.KeyEvent) {
@@ -149,9 +169,9 @@ func (d *MidiDevice) handleControl(bind keyBind, event hardware.KeyEvent) {
 	case OctaveDown:
 		d.ChangeOctave(-1)
 	case SemitoneUp:
-		d.semitones += 1
+		d.ChangeSemitone(1)
 	case SemitoneDown:
-		d.semitones -= 1
+		d.ChangeSemitone(-1)
 	case ChannelUp:
 		d.ChangeChannel(1)
 	case ChannelDown:
@@ -171,41 +191,53 @@ func (d *MidiDevice) handleNote(bind keyBind, event hardware.KeyEvent) {
 	var velocity byte
 	var midiData jack.MidiData
 
-	// todo: handle channel change state
 	if event.Released {
-		note, ok := d.pressedKeys[event.Code]
-		if !ok {
-			logging.Infof("somehow that key wasn't pressed yet on that device, skipping NoteOff event generation")
-			return
-		}
-		times, _ := d.midiPresses[note]
-		if times > 1 { // key already pressed, skipping
-			delete(d.pressedKeys, event.Code)
-			d.midiPresses[note] -= 1
-			return
+		for channel := range d.pressedKeys { // in fact there should not be more than one iteration in most cases
+			note, ok := d.pressedKeys[channel][event.Code]
+			if !ok { // key is not pressed on that channel
+				logging.Infof("somehow that key wasn't pressed yet on that device (and that channel), skipping NoteOff event generation")
+				continue
+			}
+			times, _ := d.midiPresses[channel][note]
+			if times > 1 { // key already pressed, skipping
+				delete(d.pressedKeys[channel], event.Code)
+				d.midiPresses[channel][note] -= 1
+				continue
+			}
+
+			typeAndChannel = MidiNoteOff | channel
+			velocity = 0
+
+			midiData = jack.MidiData{
+				Time:   0,
+				Buffer: []byte{typeAndChannel, note, velocity},
+			}
+			*d.events <- MidiEvent{d.MidiPort, midiData}
+
+			d.midiPresses[channel][note] = 0
+			delete(d.pressedKeys[channel], event.Code)
+
+			// remove current channels map if empty
+			if l := len(d.pressedKeys[channel]); l == 0 {
+				delete(d.pressedKeys, channel)
+			}
 		}
 
-		typeAndChannel = NoteOff | d.channel
-		velocity = 0
-
-		midiData = jack.MidiData{
-			Time:   0,
-			Buffer: []byte{typeAndChannel, note, velocity},
-		}
-		*d.events <- MidiEvent{d.MidiPort, midiData}
-
-		d.midiPresses[note] = 0
-		delete(d.pressedKeys, event.Code)
 	} else {
+		if _, ok := d.pressedKeys[d.channel]; !ok {
+			// create map on current channel if not exist
+			d.pressedKeys[d.channel] = make(map[uint8]uint8)
+		}
+
 		note := bind.target + uint8(d.semitones)
-		times, ok := d.midiPresses[note]
-		if ok && times > 0 {
-			d.pressedKeys[event.Code] = note
-			d.midiPresses[note] += 1
+		//if _, ok := d.pressedKeys[d.channel]
+		if times, ok := d.midiPresses[d.channel][note]; ok && times > 0 {
+			d.pressedKeys[d.channel][event.Code] = note
+			d.midiPresses[d.channel][note] += 1
 			return
 		}
 
-		typeAndChannel = NoteOn | d.channel
+		typeAndChannel = MidiNoteOn | d.channel
 		velocity = uint8(rand.Intn(63)) + 64
 
 		midiData = jack.MidiData{
@@ -213,15 +245,15 @@ func (d *MidiDevice) handleNote(bind keyBind, event hardware.KeyEvent) {
 			Buffer: []byte{typeAndChannel, note, velocity},
 		}
 		*d.events <- MidiEvent{d.MidiPort, midiData}
-		d.pressedKeys[event.Code] = note
+		d.pressedKeys[d.channel][event.Code] = note
 
-		_, ok = d.midiPresses[note]
-		if !ok {
-			d.midiPresses[note] = 1
+		if _, ok := d.midiPresses[d.channel][note]; !ok {
+			d.midiPresses[d.channel][note] = 1
 		} else {
-			d.midiPresses[note] += 1
+			d.midiPresses[d.channel][note] += 1
 		}
 	}
+
 }
 
 func (d *MidiDevice) Process() {
@@ -239,5 +271,5 @@ func (m MidiEvent) String() string {
 }
 
 func (d *MidiDevice) String() string {
-	return fmt.Sprintf("MidiDevice, channel: %2d, octaves: %2d (semitones: %2d), active keys: %d, [%s]", d.channel, d.semitones/12, d.semitones, len(d.pressedKeys), d.Config.Identification.NiceName)
+	return fmt.Sprintf("MidiDevice, channel: %2d, octaves: %2d (semitones: %2d), active keys: %d, [%s]", d.channel, d.semitones/12, d.semitones%12, len(d.pressedKeys[d.channel]), d.Config.Identification.NiceName)
 }
