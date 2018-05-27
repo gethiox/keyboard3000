@@ -179,7 +179,7 @@ func (d *MidiDevice) handleControl(bind keyBind, event hardware.KeyEvent) {
 	case Panic:
 		midiData := jack.MidiData{
 			Time:   0,
-			Buffer: []byte{0xb0 | d.channel, 0x7b, 0x00}, // panic,
+			Buffer: []byte{MidiControlAndMode | d.channel, MidiPanic, 0x00}, // panic,
 		}
 
 		*d.events <- MidiEvent{d.MidiPort, midiData}
@@ -263,7 +263,7 @@ func (d *MidiDevice) Process() {
 	for {
 		keyEvent, err := d.Handler.ReadKey()
 		if err != nil {
-			panic(err)
+			break
 		}
 		d.HandleRawEvent(keyEvent)
 	}

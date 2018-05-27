@@ -9,11 +9,14 @@ import (
 	"strings"
 )
 
+
+type InputID uint64
+
 type InputDevice struct {
-	bus     int64
-	vendor  int64
-	product int64
-	version int64
+	bus     uint16
+	vendor  uint16
+	product uint16
+	version uint16
 
 	Name     string
 	handlers []string
@@ -44,6 +47,15 @@ func NewInputDevice(section string) (InputDevice, error) {
 
 func (d *InputDevice) String() string {
 	return fmt.Sprintf("bus: 0x%04x, vendor: 0x%04x, product: 0x%04x, version: 0x%04x, handlers: %v, Name: \"%s\"", d.bus, d.vendor, d.product, d.version, d.handlers, d.Name)
+}
+
+// returns unique InputDevice indentifier
+func (d *InputDevice) Identifier() InputID {
+	return InputID(int64(d.bus) | int64(d.vendor) << 16 | int64(d.product) << 32 | int64(d.version) << 48)
+}
+
+func (d *InputDevice) Equal(other *InputDevice) bool {
+	return d.Identifier() == other.Identifier()
 }
 
 // finds event attribute in device handlers array
@@ -80,10 +92,15 @@ func readValues(record string, dev *InputDevice) {
 	case "I": // identification
 		parameters := strings.Split(string(record[3:]), " ")
 
-		dev.bus, _ = strconv.ParseInt(string(parameters[0][4:]), 16, 64)
-		dev.vendor, _ = strconv.ParseInt(string(parameters[1][7:]), 16, 64)
-		dev.product, _ = strconv.ParseInt(string(parameters[2][8:]), 16, 64)
-		dev.version, _ = strconv.ParseInt(string(parameters[3][8:]), 16, 64)
+		bus, _ := strconv.ParseInt(string(parameters[0][4:]), 16, 16)
+		vendor, _  := strconv.ParseInt(string(parameters[1][7:]), 16, 16)
+		product, _ := strconv.ParseInt(string(parameters[2][8:]), 16, 16)
+		version, _ := strconv.ParseInt(string(parameters[3][8:]), 16, 16)
+
+		dev.bus = uint16(bus)
+		dev.vendor = uint16(vendor)
+		dev.product = uint16(product)
+		dev.version = uint16(version)
 
 	case "H": // handlers
 		var handlers []string
