@@ -234,11 +234,12 @@ func (d *MidiDevice) handleNote(bind keyBind, event hardware.KeyEvent) {
 
 		note := bind.target + uint8(d.semitones)
 
-		if times, ok := d.midiPresses[d.channel][note]; ok && times > 0 { // skips NoteOn generation when note is already pressed by other keyboard key
-			d.pressedKeys[d.channel][event.Code] = note
-			d.midiPresses[d.channel][note] += 1
-			return
-		}
+		// uncomment if do not want to generate new NoteOn event on each note duplicate
+		//if times, ok := d.midiPresses[d.channel][note]; ok && times > 0 { // skips NoteOn generation when note is already pressed by other keyboard key
+		//	d.pressedKeys[d.channel][event.Code] = note
+		//	d.midiPresses[d.channel][note] += 1
+		//	return
+		//}
 
 		typeAndChannel = MidiNoteOn | d.channel
 		velocity = uint8(rand.Intn(63)) + 64
