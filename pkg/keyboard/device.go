@@ -40,7 +40,7 @@ type MidiDevice struct {
 	Config  ConfigStruct
 
 	channel   uint8
-	semitones uint8
+	semitones int8
 
 	keyMap      keyMap
 	pressedKeys pressedKeys
@@ -123,11 +123,11 @@ func (d *MidiDevice) Close() {
 }
 
 func (d *MidiDevice) ChangeSemitone(value int) {
-	d.semitones += uint8(value)
+	d.semitones += int8(value)
 }
 
 func (d *MidiDevice) ChangeOctave(value int) {
-	d.semitones += 12 * uint8(value)
+	d.semitones += 12 * int8(value)
 }
 
 func (d *MidiDevice) ChangeChannel(value int) {
