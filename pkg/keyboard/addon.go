@@ -48,7 +48,7 @@ var global_z float64 = 4096.0
 const divider = 100
 
 var last_sig time.Time
-var resetted bool
+var resetted bool = true
 
 // todo: fix implementation
 func (d *MidiDevice) handleCompleteData(data string) {
