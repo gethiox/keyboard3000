@@ -23,19 +23,20 @@ type ConfigStruct struct {
 }
 
 var stringToConst = map[string]uint8{
-	"panic":         Panic,
-	"reset":         Reset,
-	"octave_up":     OctaveUp,
-	"octave_down":   OctaveDown,
-	"semitone_up":   SemitoneUp,
-	"semitone_down": SemitoneDown,
-	"channel_up":    ChannelUp,
-	"channel_down":  ChannelDown,
-	"program_up":    ProgramUp,
-	"program_down":  ProgramDown,
-	"octave_add":    OctaveAdd,
-	"octave_del":    OctaveDel,
-	"pitch_control": PitchControl,
+	"panic":                Panic,
+	"reset":                Reset,
+	"octave_up":            OctaveUp,
+	"octave_down":          OctaveDown,
+	"semitone_up":          SemitoneUp,
+	"semitone_down":        SemitoneDown,
+	"channel_up":           ChannelUp,
+	"channel_down":         ChannelDown,
+	"program_up":           ProgramUp,
+	"program_down":         ProgramDown,
+	"octave_add":           OctaveAdd,
+	"octave_del":           OctaveDel,
+	"pitch_control":        PitchControl,
+	"pitch_control_toggle": PitchControlToggle,
 }
 
 // finds and return KeyMap

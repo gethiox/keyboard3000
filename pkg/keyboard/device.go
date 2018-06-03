@@ -23,6 +23,7 @@ const (
 	Control
 
 	PitchControl
+	PitchControlToggle
 
 	Panic         // ControlEvents targets
 	Reset
@@ -204,6 +205,13 @@ func (d *MidiDevice) handleControl(bind keyBind, event hardware.KeyEvent) {
 		}
 
 		*d.events <- MidiEvent{d.MidiPort, midiData}
+	case PitchControlToggle:
+		if d.pitchControl {
+			d.pitchControl = false
+		} else {
+			d.pitchControl = true
+		}
+
 	}
 }
 
