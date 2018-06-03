@@ -1,0 +1,91 @@
+identification:
+  # map is used if name is founded by that name
+  # real_name: "HID 1267:0103"
+  # real_name: "Name of my ultimate keyboard seen in /proc/bus/input/devices file"
+
+  # optional field, used to set keyboard output name
+  # nice_name: "Keyboard"
+
+control:
+  1:  panic
+  74: reset
+  60: octave_up
+  59: octave_down
+  62: semitone_up
+  61: semitone_down
+  66: channel_up
+  65: channel_down
+  68: program_up
+  67: program_down
+  64: octave_add
+  63: octave_del
+
+# every keyboard note is allowed
+# use c4 as lowest possible note is recommended
+# decimal notation are allowed
+
+# 0: c-1 (first)
+# 12: c0
+# 24: c1
+# 36: c2
+# 48: c3
+# 60: c4
+# 72: c5
+# 84: c6
+# 96: c7
+# 108: c8
+# 120: c9
+# 127: g9 (last)
+notes:
+    58: 58
+    42: 59
+
+    44: 60
+    31: 61
+    45: 62
+    32: 63
+    46: 64
+    47: 65
+    34: 66
+    48: 67
+    35: 68
+    49: 69
+    36: 70
+    50: 71
+   
+    51: 72
+    38: 73
+    52: 74
+    39: 75
+    53: 76
+    54: 77
+
+    # SECOND ROW
+    16: 72
+    3: 73
+    17: 74
+    4: 75
+    18: 76
+    19: 77
+    6: 78
+    20: 79
+    7: 80
+    21: 81
+    8: 82
+    22: 83
+
+    23: 84
+    10: 85
+    24: 86
+    11: 87
+    25: 88 
+    26: 89
+    13: 90
+    27: 91
+    14: 92
+    43: 93
+
+# auto-connecting section
+auto_connect:
+  - "amsynth:midi_in"
+
