@@ -6,7 +6,7 @@ import (
 )
 
 type KeyEvent struct {
-	device   *InputDevice // event source identifier
+	device   *DeviceInfo // event source identifier
 	Code     uint8
 	Released bool
 }
@@ -15,16 +15,16 @@ func (ke KeyEvent) String() string {
 	return fmt.Sprintf("RawEvent Code: (hex: 0x%02x, decimal: %3d) Released: %-5t device: \"%s\"", ke.Code, ke.Code, ke.Released, ke.device.Name)
 }
 
-func NewEvent(device *InputDevice, code uint8, released bool) KeyEvent {
+func NewEvent(device *DeviceInfo, code uint8, released bool) KeyEvent {
 	return KeyEvent{device, code, released}
 }
 
 type Handler struct {
-	Device InputDevice
+	Device DeviceInfo
 	Fd     *os.File
 }
 
-func NewHandler(fd *os.File, device InputDevice) Handler {
+func NewHandler(fd *os.File, device DeviceInfo) Handler {
 	return Handler{Fd: fd, Device: device}
 }
 

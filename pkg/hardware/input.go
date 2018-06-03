@@ -12,7 +12,7 @@ import (
 
 type InputID uint64
 
-type InputDevice struct {
+type DeviceInfo struct {
 	bus     uint16
 	vendor  uint16
 	product uint16
@@ -32,8 +32,8 @@ func (e NotAnKeyboardError) Error() string {
 	return fmt.Sprintf("%s", e.message)
 }
 
-func NewInputDevice(section string) (InputDevice, error) {
-	device := InputDevice{}
+func NewInputDevice(section string) (DeviceInfo, error) {
+	device := DeviceInfo{}
 
 	for _, record := range createRecords(section) {
 		readValues(record, &device)
@@ -45,21 +45,21 @@ func NewInputDevice(section string) (InputDevice, error) {
 	return device, NotAnKeyboardError{"Shiet, it's not an keyboard, sry bro"}
 }
 
-func (d *InputDevice) String() string {
+func (d *DeviceInfo) String() string {
 	return fmt.Sprintf("bus: 0x%04x, vendor: 0x%04x, product: 0x%04x, version: 0x%04x, handlers: %v, Name: \"%s\"", d.bus, d.vendor, d.product, d.version, d.handlers, d.Name)
 }
 
-// returns unique InputDevice indentifier
-func (d *InputDevice) Identifier() InputID {
+// returns unique DeviceInfo indentifier
+func (d *DeviceInfo) Identifier() InputID {
 	return InputID(int64(d.bus) | int64(d.vendor) << 16 | int64(d.product) << 32 | int64(d.version) << 48)
 }
 
-func (d *InputDevice) Equal(other *InputDevice) bool {
+func (d *DeviceInfo) Equal(other *DeviceInfo) bool {
 	return d.Identifier() == other.Identifier()
 }
 
 // finds event attribute in device handlers array
-func (d *InputDevice) Event() (string, error) {
+func (d *DeviceInfo) Event() (string, error) {
 	for _, handler := range d.handlers {
 		if len(handler) >= 5 && handler[:5] == "event" {
 			return handler, nil
@@ -69,7 +69,7 @@ func (d *InputDevice) Event() (string, error) {
 }
 
 // returns event file path like /dev/input/event4
-func (d *InputDevice) EventPath() (string, error) {
+func (d *DeviceInfo) EventPath() (string, error) {
 	event, err := d.Event()
 	if err != nil {
 		return "", err
@@ -85,7 +85,7 @@ func (d *InputDevice) EventPath() (string, error) {
 }
 
 // reads parameters from section and update device entity
-func readValues(record string, dev *InputDevice) {
+func readValues(record string, dev *DeviceInfo) {
 	switch string(record[0]) {
 	case "N": // Name
 		dev.Name = string(record[9 : len(record)-1])
@@ -131,14 +131,14 @@ func createSections(data []byte) []string {
 }
 
 // reads available keyboard device
-func ReadDevices() ([]InputDevice, error) {
+func ReadDevices() ([]DeviceInfo, error) {
 	// this data can be potentially collected from /sys/devices filesystem layer instead from this file
 	data, err := ioutil.ReadFile("/proc/bus/input/devices")
 	if err != nil {
 		return nil, err
 	}
 
-	var devices []InputDevice
+	var devices []DeviceInfo
 
 	for _, section := range createSections(data) {
 		device, err := NewInputDevice(section)
