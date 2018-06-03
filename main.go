@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	activeDevices   []hardware.InputDevice // active devices
+	activeDevices   []hardware.DeviceInfo // active devices
 	keyboardDevices = make(map[hardware.InputID]*keyboard.MidiDevice)
 	devicePorts     = make(map[hardware.InputID]*jack.Port) // just an local unused collection of opened midi ports
 	MidiEvents      = make(chan keyboard.MidiEvent, 6)      // main midi event channel
@@ -24,10 +24,14 @@ const appName = "Keyboard3000"
 
 // midi event processing callback
 func process(nframes uint32) int {
+	for _, port := range devicePorts {
+		port.MidiClearBuffer(nframes)
+	}
+
 	select {
 	case event := <-MidiEvents:
 		//logging.Infof("%s\n", event)
-		buffer := event.Port.MidiClearBuffer(nframes)
+		buffer := event.Port.MidiClearBuffer(nframes)  // todo: port can be cleaned second time here, make sure if that is okay
 		event.Port.MidiEventWrite(&event.Data, buffer)
 	default:
 		return 0
@@ -80,8 +84,8 @@ func midiSocketPlox(name string) *jack.Port {
 	panic("port-related shiet occurred")
 }
 
-func pluggedDevices(current []hardware.InputDevice) []hardware.InputDevice {
-	var devices []hardware.InputDevice
+func pluggedDevices(current []hardware.DeviceInfo) []hardware.DeviceInfo {
+	var devices []hardware.DeviceInfo
 
 Shiet:
 	for _, dev := range current {
@@ -97,8 +101,8 @@ Shiet:
 	return devices
 }
 
-func removedDevices(current []hardware.InputDevice) []hardware.InputDevice {
-	var devices []hardware.InputDevice
+func removedDevices(current []hardware.DeviceInfo) []hardware.DeviceInfo {
+	var devices []hardware.DeviceInfo
 	var removed bool
 
 	for _, active := range activeDevices {
@@ -191,12 +195,12 @@ func deviceMonitor() {
 }
 
 // https://stackoverflow.com/questions/37334119/how-to-delete-an-element-from-array-in-golang/37335777
-func remove(s []hardware.InputDevice, i int) []hardware.InputDevice {
+func remove(s []hardware.DeviceInfo, i int) []hardware.DeviceInfo {
 	s[len(s)-1], s[i] = s[i], s[len(s)-1]
 	return s[:len(s)-1]
 }
 
-func lookupForIndex(slice []hardware.InputDevice, value hardware.InputDevice) int {
+func lookupForIndex(slice []hardware.DeviceInfo, value hardware.DeviceInfo) int {
 	for i, v := range slice {
 		if v.Equal(&value) {
 			return i
