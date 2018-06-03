@@ -35,6 +35,7 @@ var stringToConst = map[string]uint8{
 	"program_down":  ProgramDown,
 	"octave_add":    OctaveAdd,
 	"octave_del":    OctaveDel,
+	"pitch_control": PitchControl,
 }
 
 // finds and return KeyMap

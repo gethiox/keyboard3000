@@ -18,6 +18,7 @@ control:
   67: program_down
   64: octave_add
   63: octave_del
+  57: pitch_control # handled by custom hardware addon
 
 # every keyboard note is allowed
 # use c4 as lowest possible note is recommended

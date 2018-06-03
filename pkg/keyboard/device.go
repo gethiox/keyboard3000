@@ -15,11 +15,14 @@ const (
 	MidiNoteOn         uint8 = 0x90 // first byte, first four bit mask, should be mixed with channel bits (last four bits)`
 	MidiNoteOff        uint8 = 0x80
 	MidiControlAndMode uint8 = 0xb0
+	MidiPitchControl   uint8 = 0xe0
 
 	MidiPanic uint8 = 0x7b // all notes off (status bytes)
 
 	Note    = iota
 	Control
+
+	PitchControl
 
 	Panic         // ControlEvents targets
 	Reset
@@ -50,6 +53,8 @@ type MidiDevice struct {
 	MidiPort *jack.Port
 
 	modifiers []modifiers.Modifier
+
+	pitchControl bool
 }
 
 // oressedKyes keeps track on which keyboard button triggered which midi note
@@ -110,6 +115,13 @@ func New(handler *hardware.Handler, eventChan *chan MidiEvent) *MidiDevice {
 		device.midiPresses[uint8(i)] = make(map[uint8]uint8)
 		// generation for pressedKeys is not needed because maps there are generated dynamically for performance purpose (I hope)
 	}
+
+	for _, v := range config.Control {
+		if v == "pitch_control" {
+			go device.pitchAddon()
+		}
+	}
+
 	return device
 }
 
@@ -159,6 +171,15 @@ func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 }
 
 func (d *MidiDevice) handleControl(bind keyBind, event hardware.KeyEvent) {
+	switch bind.target {
+	case PitchControl:
+		if event.Released {
+			d.pitchControl = false
+		} else {
+			d.pitchControl = true
+		}
+	}
+
 	if event.Released {
 		return
 	}
