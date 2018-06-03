@@ -41,11 +41,12 @@ func (d *MidiDevice) pitchAddon() {
 	}
 }
 
-var global_x float64 = 4096.0
-var global_y float64 = 4096.0
-var global_z float64 = 4096.0
+// pitch bend global values, should be keep as 14bit width
+var global_x float64 = 8192.0
+var global_y float64 = 8192.0
+var global_z float64 = 8192.0
 
-const divider = 100
+const divider = 10
 
 var last_sig time.Time
 var resetted bool = true
@@ -63,16 +64,43 @@ func (d *MidiDevice) handleCompleteData(data string) {
 			global_y += float64(y / divider)
 			global_z += float64(z / divider)
 
-			*d.events <- MidiEvent{d.MidiPort, jack.MidiData{0, []byte{MidiPitchControl | d.channel, byte(int(global_z) >> 7 & 0x7f), byte(global_z) & 0x7f}}}
+			if global_z > 16383.0 {
+				global_z = 16383
+			} else if global_z < 0.0 {
+				global_z = 0.0
+			}
 
-			logging.Infof("x: %8.2f, Y: %8.2f, Z: %8.2f", x, y, z)
+			*d.events <- MidiEvent{
+				d.MidiPort,
+				jack.MidiData{
+					0,
+					[]byte{
+						MidiPitchControl | d.channel,
+
+						byte(int(global_z) & 0x7f),
+						byte((int(global_z) >> 7) & 0x7f),
+					},
+				},
+			}
+
+			logging.Infof("Z: %8.2f", global_z)
 			resetted = false
 			last_sig = time.Now()
 		} else if !d.pitchControl && !resetted {
-			*d.events <- MidiEvent{d.MidiPort, jack.MidiData{0, []byte{MidiPitchControl | d.channel, byte(4096 >> 7) & 0x7f, byte(0)}}}
-			global_x = 4096.0
-			global_y = 4096.0
-			global_z = 4096.0
+			*d.events <- MidiEvent{
+				d.MidiPort,
+				jack.MidiData{
+					0,
+					[]byte{
+						MidiPitchControl | d.channel,
+						byte(0),
+						byte(8192>>7) & 0x7f,
+					},
+				},
+			}
+			global_x = 8192.0
+			global_y = 8192.0
+			global_z = 8192.0
 			resetted = true
 		}
 	}
