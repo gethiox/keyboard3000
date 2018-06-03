@@ -25,6 +25,7 @@ struct Offset {
 Offset global_offset = { .x = 0, .y = 0, .z = 0};
 
 void setup() {
+    delay(1000);
 //  Serial.println("Ultimate Keyboard3000 gyro-accel addon, v0.0.1 alpha");
     Serial.begin(115200);
 //  Serial.println("Enabling Wire");
@@ -34,13 +35,13 @@ void setup() {
     Wire.beginTransmission(MPU_6050);
     Wire.write(PWR_MGMT_1);
     Wire.write(0);          // turn on MPU-6050
-    Wire.endTransmission();
+    Wire.endTransmission(true);
 
 //  Serial.println("Set gyro sensivity...");
     Wire.beginTransmission(MPU_6050);
     Wire.write(GYRO_CONFIG);
     Wire.write(2 << 3);     // set scale range to +- 1000 degrees per second
-    Wire.endTransmission();
+    Wire.endTransmission(true);
   
 //  Serial.println("Give time to boot device up...");
     delay(1000);
