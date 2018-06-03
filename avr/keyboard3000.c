@@ -142,14 +142,14 @@ void loop() {
     double avg_acy = accel_y_tmp / double(AVERAGE);
     double avg_acz = accel_z_tmp / double(AVERAGE);
 
-    Serial.print(avg_acx); Serial.print(",");
-    Serial.print(avg_acy); Serial.print(",");
-    Serial.print(avg_acz); Serial.print(",");
+//  Serial.print(avg_acx); Serial.print(",");
+//  Serial.print(avg_acy); Serial.print(",");
+//  Serial.print(avg_acz); Serial.print(",");
     Serial.print(avg_gyx); Serial.print(",");
     Serial.print(avg_gyy); Serial.print(",");
     Serial.print(avg_gyz); Serial.print(",");
 //  Serial.print(tmp / 340.00 + 36.53); // return value in celsius degrees
-    Serial.print("\n");
+    Serial.print("\r\n");
   
     // update counter (index access value of average arrays)
     av_counter += 1;
