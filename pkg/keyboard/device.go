@@ -15,6 +15,7 @@ const (
 	MidiNoteOn         uint8 = 0x90 // first byte, first four bit mask, should be mixed with channel bits (last four bits)`
 	MidiNoteOff        uint8 = 0x80
 	MidiControlAndMode uint8 = 0xb0
+	MidiProgramChange  uint8 = 0xc0
 	MidiPitchControl   uint8 = 0xe0
 
 	MidiPanic uint8 = 0x7b // all notes off (status bytes)
@@ -45,6 +46,7 @@ type MidiDevice struct {
 
 	channel   uint8
 	semitones int8
+	program   uint8
 
 	keyMap      keyMap
 	pressedKeys pressedKeys
@@ -147,6 +149,17 @@ func (d *MidiDevice) ChangeChannel(value int) {
 	d.channel = (d.channel + uint8(value)) % 16
 }
 
+func (d *MidiDevice) ChangeProgram(value int) {
+	d.program += uint8(value)
+
+	midiData := jack.MidiData{
+		Time:   0,
+		Buffer: []byte{MidiProgramChange | d.channel, d.program, 0x00},
+	}
+
+	*d.events <- MidiEvent{d.MidiPort, midiData}
+}
+
 // main function responsible for processing raw hardware events to Midi
 func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 	code := event.Code
@@ -198,6 +211,10 @@ func (d *MidiDevice) handleControl(bind keyBind, event hardware.KeyEvent) {
 		d.ChangeChannel(1)
 	case ChannelDown:
 		d.ChangeChannel(-1)
+	case ProgramUp:
+		d.ChangeProgram(1)
+	case ProgramDown:
+		d.ChangeProgram(-1)
 	case Panic:
 		midiData := jack.MidiData{
 			Time:   0,
@@ -300,9 +317,14 @@ func (d *MidiDevice) Process() {
 }
 
 func (m MidiEvent) String() string {
-	return fmt.Sprintf("MidiEvent, time: 0x%02x, data: [0x%02x, 0x%02x, 0x%02x]), port: \"%s\"", m.Data.Time, m.Data.Buffer[0], m.Data.Buffer[1], m.Data.Buffer[2], m.Port.GetName())
+	return fmt.Sprintf(
+		"MidiEvent, time: 0x%02x, data: [0x%02x, 0x%02x, 0x%02x]), port: \"%s\"",
+		m.Data.Time, m.Data.Buffer[0], m.Data.Buffer[1], m.Data.Buffer[2], m.Port.GetName(),
+	)
 }
-
 func (d *MidiDevice) String() string {
-	return fmt.Sprintf("MidiDevice, channel: %2d, octaves: %2d (semitones: %2d), active keys: %d, [%s]", d.channel, d.semitones/12, d.semitones%12, len(d.pressedKeys[d.channel]), d.Config.Identification.NiceName)
+	return fmt.Sprintf(
+		"MidiDevice, channel: %2d, program: %2d, octaves: %2d (semitones: %2d), active keys: %d, [%s]",
+		d.channel, d.program, d.semitones/12, d.semitones%12, len(d.pressedKeys[d.channel]), d.Config.Identification.NiceName,
+	)
 }
