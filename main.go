@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"github.com/jroimartin/gocui"
 )
 
 var (
@@ -31,7 +32,7 @@ func process(nframes uint32) int {
 	select {
 	case event := <-MidiEvents:
 		//logging.Infof("%s\n", event)
-		buffer := event.Port.MidiClearBuffer(nframes)  // todo: port can be cleaned second time here, make sure if that is okay
+		buffer := event.Port.MidiClearBuffer(nframes) // todo: port can be cleaned second time here, make sure if that is okay
 		event.Port.MidiEventWrite(&event.Data, buffer)
 	default:
 		return 0
@@ -237,6 +238,7 @@ func main() {
 	}
 	defer Client.Close()
 	Client.OnShutdown(shutdown)
+	defer shutdown()
 
 	// setting Jack's process callback
 	status = Client.SetProcessCallback(process)
@@ -250,8 +252,66 @@ func main() {
 	}
 
 	go deviceMonitor()
-
-	for {
-		time.Sleep(time.Second * 1) // ¯\_(ツ)_/¯s
+	//
+	g, err := gocui.NewGui(gocui.OutputNormal)
+	if err != nil {
+		panic(err)
 	}
+	defer g.Close()
+
+	g.SetManagerFunc(layout)
+
+	if err := g.SetKeybinding("", gocui.KeyCtrlQ, gocui.ModNone, quit); err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			time.Sleep(time.Millisecond * 20)
+			g.Update(layout)
+
+		}
+
+	}()
+
+	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
+		g.Close()
+		//logging.Infof("exited")
+		//panic(err)
+	}
+
+	//for {
+	//	<-logging.LogMessages
+	//	time.Sleep(time.Millisecond * 50) // ¯\_(ツ)_/¯s
+	//}
+}
+
+func layout(g *gocui.Gui) error {
+	maxX, maxY := g.Size()
+	v, err := g.SetView("logs", 0, maxY/2, maxX-1, maxY-1)
+	v.Autoscroll = true
+	//v.Frame = false
+
+	if err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+	}
+
+ASDF:
+	for {
+		select {
+		case message := <-logging.LogMessages:
+			fmt.Fprintf(v, "\n%s", message)
+		case <-time.After(time.Millisecond * 10):
+			break ASDF
+		}
+	}
+
+	return nil
+}
+
+func quit(g *gocui.Gui, v *gocui.View) error {
+	logging.Infof("gui quitted")
+	return gocui.ErrQuit
 }

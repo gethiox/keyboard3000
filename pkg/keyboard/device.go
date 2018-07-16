@@ -166,11 +166,16 @@ func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 
 	bind, ok := d.keyMap[code]
 	if !ok {
-		logging.Infof("%s [event not in map]", event)
+		logging.Infof("%s config [event not in map]", event)
 		logging.Infof("%s\n", d)
 		return
 	} else {
-		logging.Infof("%s\n", event)
+		eventType, ok := d.Config.Control[code]
+		if !ok {
+			eventType = fmt.Sprintf("midi: %d", d.Config.Notes[code])
+		}
+
+		logging.Infof("%s [%s]\n", event, eventType)
 	}
 
 	switch bind.bindType {
