@@ -28,6 +28,8 @@ const (
 	DeviceWindow = "devices"
 )
 
+var gui gocui.Gui
+
 // midi event processing callback
 func process(nframes uint32) int {
 	for _, port := range devicePorts {
@@ -52,7 +54,7 @@ func shutdown() {
 	}
 	time.Sleep(time.Millisecond * 10) // make sure that Panic events will be processed by jack process() callback
 	Client.Close()
-	logging.Info("App shut down\n")
+	gui.Close()
 	os.Exit(0)
 }
 
@@ -260,33 +262,33 @@ func main() {
 
 	go deviceMonitor()
 	//
-	g, err := gocui.NewGui(gocui.OutputNormal)
+	gui, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
 		panic(err)
 	}
-	defer g.Close()
+	defer gui.Close()
 
-	g.SetManagerFunc(layout)
+	gui.SetManagerFunc(layout)
 
-	if err := g.SetKeybinding("", gocui.KeyCtrlQ, gocui.ModNone, quit); err != nil {
+	if err := gui.SetKeybinding("", gocui.KeyCtrlQ, gocui.ModNone, quit); err != nil {
 		panic(err)
 	}
 
 	// GUI updaters
-	go logUpdate(g)
-	go devicesUpdate(g)
+	go logUpdate(gui)
+	go devicesUpdate(gui)
 
 	go func() {
 		for {
-			time.Sleep(time.Millisecond * 20)
-			g.Update(layout)
+			time.Sleep(time.Millisecond * 10)
+			gui.Update(layout)
 
 		}
 
 	}()
 
-	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
-		g.Close()
+	if err := gui.MainLoop(); err != nil {
+		shutdown()
 	}
 }
 
@@ -331,12 +333,10 @@ func devicesUpdate(g *gocui.Gui) {
 			md := keyboardDevices[inputID]
 			content = []byte(md.String() + "\n")
 			v.Write(content)
-
 		}
 
 		time.Sleep(time.Millisecond * 20)
 	}
-
 }
 
 func layout(g *gocui.Gui) error {
@@ -344,19 +344,17 @@ func layout(g *gocui.Gui) error {
 	if v, err := g.SetView(LogWindow, 0, maxY/2, maxX-1, maxY-1); err != nil {
 		v.Title = "[Logs]"
 		v.Autoscroll = true
-		//v.Frame = false
+		v.Wrap = true
 	}
 
 	if v, err := g.SetView(DeviceWindow, 0, 0, maxX-1, maxY/2-1); err != nil {
 		v.Title = "[Devices]"
 		v.Autoscroll = false
-		//v.Frame = false
 	}
 
 	return nil
 }
 
 func quit(g *gocui.Gui, v *gocui.View) error {
-	logging.Info("gui quitted")
 	return gocui.ErrQuit
 }

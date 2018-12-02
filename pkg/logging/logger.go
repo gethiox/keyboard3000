@@ -6,7 +6,6 @@ import (
 )
 
 var LogMessages = make(chan string, 50)
-//var logger = log.New(os.Stdout, "", log.Ltime|log.Lmicroseconds) // todo: resolve Lshortfile flag issue
 
 func Info(message string) {
 	now := time.Now()

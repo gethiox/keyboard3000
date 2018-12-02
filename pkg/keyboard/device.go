@@ -98,10 +98,10 @@ func New(handler *hardware.Handler, eventChan *chan MidiEvent) *MidiDevice {
 	keymap := make(keyMap)
 
 	for k, v := range config.Notes {
-		keymap[k] = keyBind{target: v, bindType: Note}
+		keymap[k] = keyBind{v, Note}
 	}
 	for k, v := range config.Control {
-		keymap[k] = keyBind{target: stringToConst[v], bindType: Control}
+		keymap[k] = keyBind{stringToConst[v], Control}
 	}
 
 	device := &MidiDevice{
