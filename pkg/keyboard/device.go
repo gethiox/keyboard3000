@@ -164,9 +164,14 @@ func (d *MidiDevice) ChangeProgram(value int) {
 func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 	code := event.Code
 
+	deviceName := d.Config.Identification.NiceName
+	if deviceName == "" {
+		deviceName = event.Source()
+	}
+
 	bind, ok := d.keyMap[code]
 	if !ok {
-		logging.Infof("%s config [event not in map]", event)
+		logging.Infof("%s  Device: %-20s [config event not in map]", event, deviceName)
 		return
 	} else {
 		eventType, ok := d.Config.Control[code]
@@ -174,7 +179,7 @@ func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 			eventType = fmt.Sprintf("midi: %d", d.Config.Notes[code])
 		}
 
-		logging.Infof("%s [%s]", event, eventType)
+		logging.Infof("%s  Device: %-20s [%s]", event, deviceName, eventType)
 	}
 
 	switch bind.bindType {
@@ -326,8 +331,13 @@ func (m MidiEvent) String() string {
 	)
 }
 func (d *MidiDevice) String() string {
+	deviceName := d.Config.Identification.NiceName
+	if deviceName == "" {
+		deviceName = d.Handler.Device.Name
+	}
+
 	return fmt.Sprintf(
 		"MidiDevice, channel: %2d, program: %2d, octaves: %2d (semitones: %2d), active keys: %d, [%s]",
-		d.channel, d.program, d.semitones/12, d.semitones%12, len(d.pressedKeys[d.channel]), d.Config.Identification.NiceName,
+		d.channel, d.program, d.semitones/12, d.semitones%12, len(d.pressedKeys[d.channel]), deviceName,
 	)
 }

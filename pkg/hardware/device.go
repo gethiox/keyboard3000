@@ -12,7 +12,12 @@ type KeyEvent struct {
 }
 
 func (ke KeyEvent) String() string {
-	return fmt.Sprintf("RawEvent Code: (hex: 0x%02x, decimal: %3d) Released: %-5t device: \"%s\"", ke.Code, ke.Code, ke.Released, ke.device.Name)
+	//return fmt.Sprintf("RawEvent Code: (hex: 0x%02x, decimal: %3d) Released: %-5t device: \"%s\"", ke.Code, ke.Code, ke.Released, ke.device.Name)
+	return fmt.Sprintf("RawEvent Code: (hex: 0x%02x, decimal: %3d) Released: %-5t", ke.Code, ke.Code, ke.Released)
+}
+
+func (ke KeyEvent) Source() string {
+	return ke.device.Name
 }
 
 func NewEvent(device *DeviceInfo, code uint8, released bool) KeyEvent {
