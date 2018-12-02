@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
+	"github.com/jroimartin/gocui"
 	"github.com/xthexder/go-jack"
 	"keyboard3000/pkg/hardware"
 	"keyboard3000/pkg/keyboard"
 	"keyboard3000/pkg/logging"
 	"os"
 	"os/signal"
+	"sort"
 	"syscall"
 	"time"
-	"github.com/jroimartin/gocui"
 )
 
 var (
@@ -22,6 +23,10 @@ var (
 )
 
 const appName = "Keyboard3000"
+const (
+	LogWindow    = "logs"
+	DeviceWindow = "devices"
+)
 
 // midi event processing callback
 func process(nframes uint32) int {
@@ -31,7 +36,7 @@ func process(nframes uint32) int {
 
 	select {
 	case event := <-MidiEvents:
-		//logging.Infof("%s\n", event)
+		//logging.Infof("%s", event)
 		buffer := event.Port.MidiClearBuffer(nframes) // todo: port can be cleaned second time here, make sure if that is okay
 		event.Port.MidiEventWrite(&event.Data, buffer)
 	default:
@@ -47,7 +52,7 @@ func shutdown() {
 	}
 	time.Sleep(time.Millisecond * 10) // make sure that Panic events will be processed by jack process() callback
 	Client.Close()
-	logging.Infof("App shut down\n")
+	logging.Info("App shut down\n")
 	os.Exit(0)
 }
 
@@ -169,7 +174,7 @@ func deviceMonitor() {
 				}
 			}
 
-			logging.Infof("Run keyboard: \"%s\"\n", dev.Name)
+			logging.Infof("Run keyboard: \"%s\"", dev.Name)
 
 			go midiDevice.Process()
 		}
@@ -217,7 +222,7 @@ func main() {
 	now := time.Now()
 	devices, err := hardware.ReadDevices()
 
-	logging.Infof("finding keyboard devices takes me: %s\n", time.Since(now))
+	logging.Infof("finding keyboard devices takes me: %s", time.Since(now))
 	if err != nil {
 		panic(err)
 	}
@@ -226,9 +231,9 @@ func main() {
 	now = time.Now()
 	for _, dev := range devices {
 		eventPath, _ := dev.EventPath()
-		logging.Infof("%s\n", eventPath)
+		logging.Info(eventPath)
 	}
-	logging.Infof("finding event paths takes me: %s\n", time.Since(now))
+	logging.Infof("finding event paths takes me: %s", time.Since(now))
 
 	// opening JackClient
 	var status int
@@ -247,7 +252,7 @@ func main() {
 	}
 
 	if code := Client.Activate(); code != 0 {
-		logging.Infof("Failed to activate client: ", code)
+		logging.Infof("Failed to activate client, code: %d", code)
 		return
 	}
 
@@ -265,6 +270,10 @@ func main() {
 		panic(err)
 	}
 
+	// GUI updaters
+	go logUpdate(g)
+	go devicesUpdate(g)
+
 	go func() {
 		for {
 			time.Sleep(time.Millisecond * 20)
@@ -276,42 +285,78 @@ func main() {
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		g.Close()
-		//logging.Infof("exited")
-		//panic(err)
+	}
+}
+
+func logUpdate(g *gocui.Gui) {
+	for {
+		v, err := g.View(LogWindow)
+		if err != nil {
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
+
+	ASDF:
+		for {
+			select {
+			case message := <-logging.LogMessages:
+				fmt.Fprintf(v, "\n%s", message)
+			case <-time.After(time.Millisecond * 10):
+				break ASDF
+			}
+		}
+		time.Sleep(time.Millisecond * 100)
+	}
+}
+
+func devicesUpdate(g *gocui.Gui) {
+	for {
+		v, err := g.View(DeviceWindow)
+		if err != nil {
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
+
+		// preparing ordering data
+		var keys []hardware.InputID
+		for inputID := range keyboardDevices {
+			keys = append(keys, inputID)
+		}
+		sort.Slice(keys, func(i, j int) bool { return keys[i] > keys[j] })
+
+		var content []byte
+		v.Clear()
+
+		for _, inputID := range keys {
+			md := keyboardDevices[inputID]
+			content = []byte(md.String() + "\n")
+			v.Write(content)
+
+		}
+
+		time.Sleep(time.Millisecond * 50)
 	}
 
-	//for {
-	//	<-logging.LogMessages
-	//	time.Sleep(time.Millisecond * 50) // ¯\_(ツ)_/¯s
-	//}
 }
 
 func layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
-	v, err := g.SetView("logs", 0, maxY/2, maxX-1, maxY-1)
-	v.Autoscroll = true
-	//v.Frame = false
-
-	if err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
+	if v, err := g.SetView(LogWindow, 0, maxY/2, maxX-1, maxY-1); err != nil {
+		v.Title = "Logs"
+		v.Autoscroll = true
+		//v.Frame = false
 	}
 
-ASDF:
-	for {
-		select {
-		case message := <-logging.LogMessages:
-			fmt.Fprintf(v, "\n%s", message)
-		case <-time.After(time.Millisecond * 10):
-			break ASDF
-		}
+	if v, err := g.SetView(DeviceWindow, 0, 0, maxX/2-1, maxY/2-1); err != nil {
+		v.Title = "Devices"
+		v.Autoscroll = false
+		//v.Frame = false
 	}
 
 	return nil
 }
 
 func quit(g *gocui.Gui, v *gocui.View) error {
-	logging.Infof("gui quitted")
+	logging.Info("gui quitted")
 	return gocui.ErrQuit
 }

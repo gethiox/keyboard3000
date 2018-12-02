@@ -5,20 +5,22 @@ import (
 	"time"
 )
 
-var LogMessages = make(chan string, 10)
+var LogMessages = make(chan string, 50)
 //var logger = log.New(os.Stdout, "", log.Ltime|log.Lmicroseconds) // todo: resolve Lshortfile flag issue
 
-func Infof(message string, v ...interface{}) {
+func Info(message string) {
 	now := time.Now()
 
-	if message[len(message)-1:] == "\n" {
-		message = message[0:len(message)-1]
-	}
+	message = fmt.Sprintf("%s: %s", now.Format("15:04:05.000000000"), message)
 
-	message = fmt.Sprintf("%s [I] %s", now.Format("15:04:05.000"), message)
+	LogMessages <- message
+}
 
+func Infof(format string, vs ...interface{}) {
+	now := time.Now()
 
-	LogMessages <- fmt.Sprintf(message, v...)
+	format = fmt.Sprintf(format, vs...)
+	format = fmt.Sprintf("%s: %s", now.Format("15:04:05.000000000"), format)
 
-	//logger.Printf(message, v...)
+	LogMessages <- format
 }

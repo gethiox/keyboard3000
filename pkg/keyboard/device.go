@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"github.com/xthexder/go-jack"
 	"io/ioutil"
-	"math/rand"
 	"keyboard3000/pkg/hardware"
 	"keyboard3000/pkg/logging"
 	"keyboard3000/pkg/modifiers"
+	"math/rand"
 )
 
 const (
@@ -20,13 +20,13 @@ const (
 
 	MidiPanic uint8 = 0x7b // all notes off (status bytes)
 
-	Note    = iota
+	Note = iota
 	Control
 
 	PitchControl
 	PitchControlToggle
 
-	Panic         // ControlEvents targets
+	Panic  // ControlEvents targets
 	Reset
 	OctaveUp
 	OctaveDown
@@ -87,7 +87,7 @@ func New(handler *hardware.Handler, eventChan *chan MidiEvent) *MidiDevice {
 			}
 			config, err = loadConfig(data)
 			logging.Infof(
-				"Shiet, configuration is missed for \"%s\" device, but default loaded at least ¯\\_(ツ)_/¯.\n",
+				"Shiet, configuration is missed for \"%s\" device, but default loaded at least ¯\\_(ツ)_/¯.",
 				handler.Device.Name,
 			)
 		} else {
@@ -167,7 +167,6 @@ func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 	bind, ok := d.keyMap[code]
 	if !ok {
 		logging.Infof("%s config [event not in map]", event)
-		logging.Infof("%s\n", d)
 		return
 	} else {
 		eventType, ok := d.Config.Control[code]
@@ -175,7 +174,7 @@ func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 			eventType = fmt.Sprintf("midi: %d", d.Config.Notes[code])
 		}
 
-		logging.Infof("%s [%s]\n", event, eventType)
+		logging.Infof("%s [%s]", event, eventType)
 	}
 
 	switch bind.bindType {
@@ -186,7 +185,6 @@ func (d *MidiDevice) HandleRawEvent(event hardware.KeyEvent) {
 	default:
 		panic("The Ultimatest Shiet I've ever seen")
 	}
-	logging.Infof("%s\n", d)
 }
 
 func (d *MidiDevice) handleControl(bind keyBind, event hardware.KeyEvent) {
@@ -246,7 +244,7 @@ func (d *MidiDevice) handleNote(bind keyBind, event hardware.KeyEvent) {
 		for channel := range d.pressedKeys { // in fact there should not be more than one iteration in most cases
 			note, ok := d.pressedKeys[channel][event.Code]
 			if !ok { // keyboard key is not pressed on that channel
-				logging.Infof("somehow that key wasn't pressed yet on that device (and that channel), skipping NoteOff event generation")
+				logging.Info("somehow that key wasn't pressed yet on that device (and that channel), skipping NoteOff event generation")
 				continue
 			}
 

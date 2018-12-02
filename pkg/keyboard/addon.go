@@ -1,19 +1,19 @@
 package keyboard
 
 import (
-	"os"
-	"keyboard3000/pkg/logging"
-	"strings"
-	"strconv"
 	"github.com/xthexder/go-jack"
+	"keyboard3000/pkg/logging"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
 func (d *MidiDevice) pitchAddon() {
 	fd, err := os.Open("/dev/ttyUSB0")
 	if err != nil {
-		logging.Infof("Addon shiet, forget about your stupid addon, it just doesn't work")
-		logging.Infof(err.Error())
+		logging.Info("Addon shiet, forget about your stupid addon, it just doesn't work")
+		logging.Info(err.Error())
 		return
 	}
 	defer fd.Close()

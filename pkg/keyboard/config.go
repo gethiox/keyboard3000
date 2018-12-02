@@ -1,8 +1,8 @@
 package keyboard
 
 import (
-	"gopkg.in/yaml.v2"
 	"errors"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"keyboard3000/pkg/logging"
 )
@@ -58,7 +58,7 @@ func FindConfig(name string) (ConfigStruct, error) {
 		}
 
 		if name == config.Identification.RealName {
-			logging.Infof("Great, configuration found for \"%s\" device.\n", name)
+			logging.Infof("Great, configuration found for \"%s\" device.", name)
 			return config, nil
 		}
 	}
