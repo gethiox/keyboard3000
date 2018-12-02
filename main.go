@@ -138,18 +138,20 @@ func deviceMonitor() {
 
 			fd, err := os.Open(eventPath)
 			i := 0
-			for ; i < 10; i++ { // trying to open keyboard event device
+			for ; i < 20; i++ { // trying to open keyboard event device
 				if err != nil {
 					time.Sleep(time.Millisecond * 50)
 					fd, err = os.Open(eventPath)
+					continue
 				} else {
 					logging.Infof("Device event file opened successfully on %d try", i+1)
 					break
 				}
 			}
+
 			if err != nil {
-				logging.Infof("Device event failed to open after %d tries", i)
-				panic(err)
+				logging.Infof("Device event failed to open after %d tries", i+1)
+				continue
 			}
 
 			activeDevices = append(activeDevices, dev) // mark device as active from this point
@@ -296,16 +298,14 @@ func logUpdate(g *gocui.Gui) {
 			continue
 		}
 
-	ASDF:
+		var message string
 		for {
-			select {
-			case message := <-logging.LogMessages:
-				fmt.Fprintf(v, "\n%s", message)
-			case <-time.After(time.Millisecond * 10):
-				break ASDF
+			message = <-logging.LogMessages
+			_, err := fmt.Fprintf(v, "\n%s", message)
+			if err != nil {
+				break
 			}
 		}
-		time.Sleep(time.Millisecond * 100)
 	}
 }
 
@@ -334,7 +334,7 @@ func devicesUpdate(g *gocui.Gui) {
 
 		}
 
-		time.Sleep(time.Millisecond * 50)
+		time.Sleep(time.Millisecond * 20)
 	}
 
 }
@@ -342,13 +342,13 @@ func devicesUpdate(g *gocui.Gui) {
 func layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
 	if v, err := g.SetView(LogWindow, 0, maxY/2, maxX-1, maxY-1); err != nil {
-		v.Title = "Logs"
+		v.Title = "[Logs]"
 		v.Autoscroll = true
 		//v.Frame = false
 	}
 
 	if v, err := g.SetView(DeviceWindow, 0, 0, maxX-1, maxY/2-1); err != nil {
-		v.Title = "Devices"
+		v.Title = "[Devices]"
 		v.Autoscroll = false
 		//v.Frame = false
 	}
