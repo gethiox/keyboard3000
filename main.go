@@ -347,7 +347,7 @@ func layout(g *gocui.Gui) error {
 		//v.Frame = false
 	}
 
-	if v, err := g.SetView(DeviceWindow, 0, 0, maxX/2-1, maxY/2-1); err != nil {
+	if v, err := g.SetView(DeviceWindow, 0, 0, maxX-1, maxY/2-1); err != nil {
 		v.Title = "Devices"
 		v.Autoscroll = false
 		//v.Frame = false

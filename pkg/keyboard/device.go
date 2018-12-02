@@ -87,7 +87,7 @@ func New(handler *hardware.Handler, eventChan *chan MidiEvent) *MidiDevice {
 			}
 			config, err = loadConfig(data)
 			logging.Infof(
-				"Shiet, configuration is missed for \"%s\" device, but default loaded at least ¯\\_(ツ)_/¯.",
+				"Shiet, configuration is missed for \"%s\" device, but default loaded at least ¯\\_(ツ )_/¯.",
 				handler.Device.Name,
 			)
 		} else {
