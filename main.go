@@ -29,6 +29,7 @@ const (
 )
 
 var gui gocui.Gui
+var devRefreshSync = make(chan bool)
 
 // midi event processing callback
 func process(nframes uint32) int {
@@ -282,6 +283,7 @@ func main() {
 		for {
 			time.Sleep(time.Millisecond * 10) // todo: avoid busyloop
 			gui.Update(layout)
+			devRefreshSync <- true
 		}
 	}()
 
@@ -325,7 +327,8 @@ func devicesUpdate(g *gocui.Gui) {
 		sort.Slice(keys, func(i, j int) bool { return keys[i] > keys[j] })
 
 		var content []byte
-		v.Clear()
+		<-devRefreshSync // todo: better way to sync, mutex or something
+		v.Clear()        // if not synced there may be visible flickering effect
 
 		for _, inputID := range keys {
 			md := keyboardDevices[inputID]
