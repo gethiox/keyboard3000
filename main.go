@@ -280,11 +280,9 @@ func main() {
 
 	go func() {
 		for {
-			time.Sleep(time.Millisecond * 10)
+			time.Sleep(time.Millisecond * 10) // todo: avoid busyloop
 			gui.Update(layout)
-
 		}
-
 	}()
 
 	if err := gui.MainLoop(); err != nil {
@@ -341,15 +339,16 @@ func devicesUpdate(g *gocui.Gui) {
 
 func layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
-	if v, err := g.SetView(LogWindow, 0, maxY/2, maxX-1, maxY-1); err != nil {
+	if v, err := g.SetView(LogWindow, 0, 0, maxX-1, maxY-1); err != nil {
 		v.Title = "[Logs]"
 		v.Autoscroll = true
 		v.Wrap = true
 	}
 
-	if v, err := g.SetView(DeviceWindow, 0, 0, maxX-1, maxY/2-1); err != nil {
+	if v, err := g.SetView(DeviceWindow, maxX-100, 0, maxX-1, maxY/4); err != nil {
 		v.Title = "[Devices]"
 		v.Autoscroll = false
+		v.Wrap = true
 	}
 
 	return nil
