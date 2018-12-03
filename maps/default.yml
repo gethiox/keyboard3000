@@ -99,6 +99,17 @@ notes:
   14: 71
   28: 72
 
+options:
+  # defines behavior of generating note_on/note_off events on case where two different buttons are mapped to
+  # the same midi note
+  #
+  #           "always" - classic, lazy behavior where note_on and note_off events are always produced
+  #            "never" - note_on event are produced only for new midi notes, if note is already pressed by different key, event generation will be skipped.
+  #                      note_off event are produced only when all keys which was pressing same midi note will be released
+  # "new_presses_only" - (Default) - note_on events are always generated.
+  #                      note_off event are produced only when all keys which was pressing same midi note will be released
+  midi_jam_mode: "new_presses_only"
+
 # auto-connecting section
 auto_connect:
   - "amsynth:midi_in"
