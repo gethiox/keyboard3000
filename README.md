@@ -1,5 +1,5 @@
 # keyboard3000
-faster and even more ultimate keyboard2000 implementation!
+faster and even more ultimate [keyboard2000](https://github.com/gethiox/keyboard2000) implementation!
 
 ![preview](doc/preview.png)
 
