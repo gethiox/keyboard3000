@@ -51,7 +51,7 @@ var stringToConst = map[string]uint8{
 }
 
 func (c *ConfigStruct) setDefaults() {
-	c.Options.MidiJamMode = NewPressOnly
+	c.Options.MidiJamMode = Never
 }
 
 // finds and return KeyMap

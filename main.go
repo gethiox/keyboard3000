@@ -10,42 +10,78 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"sync"
 	"syscall"
 	"time"
 )
 
 var (
-	activeDevices   []hardware.DeviceInfo // active devices
-	keyboardDevices = make(map[hardware.InputID]*keyboard.MidiDevice)
-	devicePorts     = make(map[hardware.InputID]*jack.Port) // just an local unused collection of opened midi ports
-	MidiEvents      = make(chan keyboard.MidiEvent, 6)      // main midi event channel
-	Client          *jack.Client                            // global Jack client
+	activeDevices    []hardware.DeviceInfo // active devices
+	keyboardDevices  = make(map[hardware.InputID]*keyboard.MidiDevice)
+	devicePorts      = make(map[hardware.InputID]*jack.Port) // just an local unused collection of opened midi ports
+	midiEvents       = make(chan keyboard.MidiEvent, 50)     // main midi event channel
+	midiEventsToSend = make(chan keyboard.MidiEvent, 50)
+
+	jackClient *jack.Client // global Jack client
+	termUI     gocui.Gui
+
+	devRefreshSync = make(chan bool)
+	midiBuffers    = make(map[*jack.Port]jack.MidiBuffer)
+
+	jackBufferSize uint32
 )
 
-const appName = "Keyboard3000"
 const (
+	appName = "Keyboard3000"
+
 	LogWindow    = "logs"
 	DeviceWindow = "devices"
 )
 
-var gui gocui.Gui
-var devRefreshSync = make(chan bool)
+var mutex = &sync.Mutex{} // sync mutex between `process` and `prepareMidiToSend` functions
 
-// midi event processing callback
+// Receives midi events in realtime and prepare them to be sent in `process` callback
+func prepareMidiToSend() {
+	var event keyboard.MidiEvent
+	var estimatedTime uint32
+
+	for event = range midiEvents {
+		mutex.Lock()
+		estimatedTime = jackClient.GetFramesSinceCycleStart()
+
+		if estimatedTime >= jackBufferSize { //todo: something
+			midiEvents <- event
+			mutex.Unlock()
+			continue
+		}
+
+		event.Data.Time = estimatedTime // overriding midi-time with estimated one
+
+		midiEventsToSend <- event
+		mutex.Unlock()
+	}
+}
+
 func process(nframes uint32) int {
-	for _, port := range devicePorts {
-		port.MidiClearBuffer(nframes)
+	mutex.Lock()
+	for _, port := range devicePorts { // every port buffer needs to be clear every cycle
+		midiBuffers[port] = port.MidiClearBuffer(nframes)
 	}
 
-	select {
-	case event := <-MidiEvents:
-		//logging.Infof("%s", event)
-		buffer := event.Port.MidiClearBuffer(nframes) // todo: port can be cleaned second time here, make sure if that is okay
-		event.Port.MidiEventWrite(&event.Data, buffer)
-	default:
-		return 0
+	for {
+		if len(midiEventsToSend) == 0 {
+			break
+		}
+		event := <-midiEventsToSend
+
+		err := event.Port.MidiEventWrite(&event.Data, midiBuffers[event.Port])
+		if err != 0 {
+			midiEventsToSend <- event
+			break
+		}
 	}
 
+	mutex.Unlock()
 	return 0
 }
 
@@ -53,9 +89,9 @@ func shutdown() {
 	for _, device := range keyboardDevices {
 		device.Close()
 	}
-	time.Sleep(time.Millisecond * 10) // make sure that Panic events will be processed by jack process() callback
-	Client.Close()
-	gui.Close()
+	time.Sleep(time.Millisecond * 100) // make sure that Panic events will be processed by jack process() callback
+	jackClient.Close()
+	termUI.Close()
 	os.Exit(0)
 }
 
@@ -77,7 +113,7 @@ func attachSigHandler() {
 
 // plox JACK server for keyboard socket
 func midiSocketPlox(name string) *jack.Port {
-	port := Client.PortRegister(name, jack.DEFAULT_MIDI_TYPE, jack.PortIsOutput, 0)
+	port := jackClient.PortRegister(name, jack.DEFAULT_MIDI_TYPE, jack.PortIsOutput, 0)
 	if port != nil {
 		return port
 	}
@@ -85,7 +121,7 @@ func midiSocketPlox(name string) *jack.Port {
 	// in case of already opened port with requested name adding suffixes is tried
 	for i := 0; i < 128; i++ {
 		portName := fmt.Sprintf("%s_%d", name, i)
-		port := Client.PortRegister(portName, jack.DEFAULT_MIDI_TYPE, jack.PortIsOutput, 0)
+		port := jackClient.PortRegister(portName, jack.DEFAULT_MIDI_TYPE, jack.PortIsOutput, 0)
 		if port != nil {
 			return port
 		}
@@ -160,7 +196,7 @@ func deviceMonitor() {
 			activeDevices = append(activeDevices, dev) // mark device as active from this point
 
 			handler := hardware.NewHandler(fd, dev)
-			midiDevice := keyboard.New(&handler, &MidiEvents)
+			midiDevice := keyboard.New(&handler, &midiEvents)
 			midiPort := midiSocketPlox(midiDevice.Config.Identification.NiceName)
 			midiDevice.MidiPort = midiPort
 
@@ -168,9 +204,9 @@ func deviceMonitor() {
 			devicePorts[dev.Identifier()] = midiPort
 
 			for _, target := range midiDevice.Config.AutoConnect {
-				targetPort := Client.GetPortByName(target)
+				targetPort := jackClient.GetPortByName(target)
 				if targetPort != nil {
-					code := Client.ConnectPorts(midiPort, targetPort)
+					code := jackClient.ConnectPorts(midiPort, targetPort)
 					if code != 0 {
 						logging.Infof("Autoconnect failed from \"%s\" to \"%s\"", midiPort, targetPort)
 					} else {
@@ -194,7 +230,7 @@ func deviceMonitor() {
 			}
 
 			keyboardDev.Close()
-			Client.PortUnregister(devicePorts[dev.Identifier()])
+			jackClient.PortUnregister(devicePorts[dev.Identifier()])
 
 			delete(keyboardDevices, dev.Identifier())
 			delete(devicePorts, dev.Identifier())
@@ -242,26 +278,33 @@ func main() {
 
 	// opening JackClient
 	var status int
-	Client, status = jack.ClientOpen(appName, jack.NoStartServer)
+	jackClient, status = jack.ClientOpen(appName, jack.NoStartServer)
 	if status != 0 {
 		panic("jack-Shiet")
 	}
-	defer Client.Close()
-	Client.OnShutdown(shutdown)
+	defer jackClient.Close()
+
+	jackBufferSize = jackClient.GetBufferSize()
+	status = jackClient.SetBufferSizeCallback(func(buffer uint32) int { jackBufferSize = buffer; return 0 })
+	if status != 0 {
+		panic("failed to set buffer size callback")
+	}
+
+	jackClient.OnShutdown(shutdown)
 	defer shutdown()
 
-	// setting Jack's process callback
-	status = Client.SetProcessCallback(process)
+	status = jackClient.SetProcessCallback(process)
 	if status != 0 {
 		panic("jack-ultimate-shiet")
 	}
 
-	if code := Client.Activate(); code != 0 {
+	if code := jackClient.Activate(); code != 0 {
 		logging.Infof("Failed to activate client, code: %d", code)
 		return
 	}
 
 	go deviceMonitor()
+	go prepareMidiToSend()
 	//
 	gui, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
@@ -335,6 +378,8 @@ func devicesUpdate(g *gocui.Gui) {
 			content = []byte(md.String() + "\n")
 			v.Write(content)
 		}
+		v.Write([]byte(fmt.Sprintf("\nbuffer size: %d", jackBufferSize)))
+		v.Write([]byte(fmt.Sprintf("\nevents to process: %d", len(midiEventsToSend))))
 
 		time.Sleep(time.Millisecond * 20)
 	}

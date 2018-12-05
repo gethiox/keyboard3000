@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-
 type InputID uint64
 
 type DeviceInfo struct {
@@ -51,7 +50,7 @@ func (d *DeviceInfo) String() string {
 
 // returns unique DeviceInfo indentifier
 func (d *DeviceInfo) Identifier() InputID {
-	return InputID(int64(d.bus) | int64(d.vendor) << 16 | int64(d.product) << 32 | int64(d.version) << 48)
+	return InputID(int64(d.bus) | int64(d.vendor)<<16 | int64(d.product)<<32 | int64(d.version)<<48)
 }
 
 func (d *DeviceInfo) Equal(other *DeviceInfo) bool {
@@ -93,7 +92,7 @@ func readValues(record string, dev *DeviceInfo) {
 		parameters := strings.Split(string(record[3:]), " ")
 
 		bus, _ := strconv.ParseInt(string(parameters[0][4:]), 16, 16)
-		vendor, _  := strconv.ParseInt(string(parameters[1][7:]), 16, 16)
+		vendor, _ := strconv.ParseInt(string(parameters[1][7:]), 16, 16)
 		product, _ := strconv.ParseInt(string(parameters[2][8:]), 16, 16)
 		version, _ := strconv.ParseInt(string(parameters[3][8:]), 16, 16)
 

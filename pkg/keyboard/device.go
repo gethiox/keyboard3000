@@ -323,7 +323,7 @@ func (d *MidiDevice) handleNote(bind keyBind, event hardware.KeyEvent) {
 }
 
 func (d *MidiDevice) Process() {
-	for {
+	for { // todo: exit on d.Close()
 		keyEvent, err := d.Handler.ReadKey()
 		if err != nil {
 			break

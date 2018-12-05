@@ -108,7 +108,7 @@ options:
   #                      note_off event are produced only when all keys which was pressing same midi note will be released
   # "new_presses_only" - (Default) - note_on events are always generated.
   #                      note_off event are produced only when all keys which was pressing same midi note will be released
-  midi_jam_mode: "new_presses_only"
+  midi_jam_mode: "never"
 
 # auto-connecting section
 auto_connect:
