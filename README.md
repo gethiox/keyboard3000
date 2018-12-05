@@ -26,7 +26,7 @@ Adding `input` group pernamently to your daily user is strongly **not recommende
 - [x] mapping device keys by dedicated file configurations
   - [x] different keys can be mapped to same note/function
   - [x] port autoconnection section
-  - [x] three midi events generation behaviours (see [maps/default.yml])
+  - [x] three midi events generation behaviours (see [default.yml](maps/default.yml))
 - [x] dynamically attach and deattach new and removed devices
 - [x] non-overlapping midi events, even when octave or channel change
       happen during some already played midi notes (this is the main reason behind this project)
