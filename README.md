@@ -1,7 +1,7 @@
 # keyboard3000
 faster and even more ultimate keyboard2000 implementation!
 
-![doc/preview.png]
+![preview](doc/preview.png)
 
 ## What it is?
 
