@@ -86,12 +86,14 @@ func process(nframes uint32) int {
 }
 
 func shutdown() {
+	termUI.Close()
+
 	for _, device := range keyboardDevices {
 		device.Close()
 	}
 	time.Sleep(time.Millisecond * 100) // make sure that Panic events will be processed by jack process() callback
 	jackClient.Close()
-	termUI.Close()
+
 	os.Exit(0)
 }
 
@@ -331,8 +333,11 @@ func main() {
 	}()
 
 	if err := gui.MainLoop(); err != nil {
+		fmt.Print("shie2")
 		shutdown()
 	}
+	time.Sleep(time.Millisecond * 500)
+	fmt.Print("shiet")
 }
 
 func logUpdate(g *gocui.Gui) {
@@ -387,16 +392,19 @@ func devicesUpdate(g *gocui.Gui) {
 
 func layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
-	if v, err := g.SetView(LogWindow, 0, 0, maxX-1, maxY-1); err != nil {
+
+	devices := len(keyboardDevices)
+
+	if v, err := g.SetView(LogWindow, 0, devices+5, maxX-1, maxY-1); err != nil {
 		v.Title = "[Logs]"
 		v.Autoscroll = true
 		v.Wrap = true
 	}
 
-	if v, err := g.SetView(DeviceWindow, maxX-100, 0, maxX-1, maxY/4); err != nil {
+	if v, err := g.SetView(DeviceWindow, 0, 0, maxX-1, devices+4); err != nil {
 		v.Title = "[Devices]"
 		v.Autoscroll = false
-		v.Wrap = true
+		v.Wrap = false
 	}
 
 	return nil
