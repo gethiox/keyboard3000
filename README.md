@@ -1,4 +1,4 @@
-# keyboard3000
+# Keyboard3000
 faster and even more ultimate [keyboard2000](https://github.com/gethiox/keyboard2000) implementation!
 
 ![preview](doc/preview.png)
@@ -8,8 +8,12 @@ faster and even more ultimate [keyboard2000](https://github.com/gethiox/keyboard
 Keyboard3000 is an ultimate midi event generator out of computer
 keyboard presses, prepared for [Jack audio system](http://jackaudio.org/)
 
-Project status is experimental but useful for now I think.
-The only dependency is [Xthexder](https://github.com/xthexder)'s [go-jack](https://github.com/xthexder/go-jack) bindings
+Project status is still experimental.
+
+## Dependencies
+- running JACK
+- [Xthexder](https://github.com/xthexder)'s [go-jack](https://github.com/xthexder/go-jack) bindings
+- [Kroimartin](https://github.com/jroimartin)'s [gocui](https://github.com/jroimartin/gocui) library
 
 ## Notes
 
