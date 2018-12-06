@@ -333,11 +333,9 @@ func main() {
 	}()
 
 	if err := gui.MainLoop(); err != nil {
-		fmt.Print("shie2")
 		shutdown()
 	}
 	time.Sleep(time.Millisecond * 500)
-	fmt.Print("shiet")
 }
 
 func logUpdate(g *gocui.Gui) {
