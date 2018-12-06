@@ -16,19 +16,21 @@ import (
 )
 
 var (
-	activeDevices    []hardware.DeviceInfo // active devices
-	keyboardDevices  = make(map[hardware.InputID]*keyboard.MidiDevice)
-	devicePorts      = make(map[hardware.InputID]*jack.Port) // just an local unused collection of opened midi ports
-	midiEvents       = make(chan keyboard.MidiEvent, 50)     // main midi event channel
+	activeDevices    []hardware.DeviceInfo                             // active devices
+	keyboardDevices  = make(map[hardware.InputID]*keyboard.MidiDevice) // todo: simplify structure
+	devicePorts      = make(map[hardware.InputID]*jack.Port)           // just an local unused collection of opened midi ports
+	midiEvents       = make(chan keyboard.MidiEvent, 50)               // main midi event channel
 	midiEventsToSend = make(chan keyboard.MidiEvent, 50)
 
 	jackClient *jack.Client // global Jack client
 	termUI     gocui.Gui
 
-	devRefreshSync = make(chan bool)
-	midiBuffers    = make(map[*jack.Port]jack.MidiBuffer)
+	midiPrepareMutex = &sync.Mutex{} // sync midiPrepareMutex between `process` and `prepareMidiToSend` functions
+	devRefreshSync   = &sync.Mutex{}
+	midiBuffers      = make(map[*jack.Port]jack.MidiBuffer)
 
 	jackBufferSize uint32
+	jackSampleRate uint32
 )
 
 const (
@@ -38,32 +40,30 @@ const (
 	DeviceWindow = "devices"
 )
 
-var mutex = &sync.Mutex{} // sync mutex between `process` and `prepareMidiToSend` functions
-
 // Receives midi events in realtime and prepare them to be sent in `process` callback
 func prepareMidiToSend() {
 	var event keyboard.MidiEvent
 	var estimatedTime uint32
 
 	for event = range midiEvents {
-		mutex.Lock()
+		midiPrepareMutex.Lock()
 		estimatedTime = jackClient.GetFramesSinceCycleStart()
 
 		if estimatedTime >= jackBufferSize { //todo: something
 			midiEvents <- event
-			mutex.Unlock()
+			midiPrepareMutex.Unlock()
 			continue
 		}
 
 		event.Data.Time = estimatedTime // overriding midi-time with estimated one
 
 		midiEventsToSend <- event
-		mutex.Unlock()
+		midiPrepareMutex.Unlock()
 	}
 }
 
 func process(nframes uint32) int {
-	mutex.Lock()
+	midiPrepareMutex.Lock()
 	for _, port := range devicePorts { // every port buffer needs to be clear every cycle
 		midiBuffers[port] = port.MidiClearBuffer(nframes)
 	}
@@ -81,7 +81,7 @@ func process(nframes uint32) int {
 		}
 	}
 
-	mutex.Unlock()
+	midiPrepareMutex.Unlock()
 	return 0
 }
 
@@ -244,6 +244,7 @@ func deviceMonitor() {
 }
 
 // https://stackoverflow.com/questions/37334119/how-to-delete-an-element-from-array-in-golang/37335777
+// todo: remove this cancer
 func remove(s []hardware.DeviceInfo, i int) []hardware.DeviceInfo {
 	s[len(s)-1], s[i] = s[i], s[len(s)-1]
 	return s[:len(s)-1]
@@ -287,6 +288,7 @@ func main() {
 	defer jackClient.Close()
 
 	jackBufferSize = jackClient.GetBufferSize()
+	jackSampleRate = jackClient.GetSampleRate()
 	status = jackClient.SetBufferSizeCallback(func(buffer uint32) int { jackBufferSize = buffer; return 0 })
 	if status != 0 {
 		panic("failed to set buffer size callback")
@@ -328,7 +330,6 @@ func main() {
 		for {
 			time.Sleep(time.Millisecond * 10) // todo: avoid busyloop
 			gui.Update(layout)
-			devRefreshSync <- true
 		}
 	}()
 
@@ -373,18 +374,18 @@ func devicesUpdate(g *gocui.Gui) {
 		sort.Slice(keys, func(i, j int) bool { return keys[i] > keys[j] })
 
 		var content []byte
-		<-devRefreshSync // todo: better way to sync, mutex or something
-		v.Clear()        // if not synced there may be visible flickering effect
+
+		v.Clear() // nevermind
 
 		for _, inputID := range keys {
 			md := keyboardDevices[inputID]
 			content = []byte(md.String() + "\n")
 			v.Write(content)
 		}
-		v.Write([]byte(fmt.Sprintf("\nbuffer size: %d", jackBufferSize)))
-		v.Write([]byte(fmt.Sprintf("\nevents to process: %d", len(midiEventsToSend))))
+		v.Write([]byte(fmt.Sprintf("\nbuffer size: %d, sample_rate: %d", jackBufferSize, jackSampleRate)))
+		v.Write([]byte(fmt.Sprintf("\nevents to process: %d, events to send in next callback: %d", len(midiEvents), len(midiEventsToSend))))
 
-		time.Sleep(time.Millisecond * 20)
+		time.Sleep(time.Millisecond * 10)
 	}
 }
 
