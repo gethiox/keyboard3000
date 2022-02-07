@@ -1,3 +1,5 @@
+**Deprecated, replaced with [HIDI](https://github.com/gethiox/HIDI)**
+
 # Keyboard3000
 faster and even more ultimate [keyboard2000](https://github.com/gethiox/keyboard2000) implementation!
 
